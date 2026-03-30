@@ -1,0 +1,32 @@
+{
+  "name": "svg-map-platform",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "nx serve api",
+    "dev:web": "nx serve web",
+    "dev": "nx run-many --target=serve --projects=api,web",
+    "build": "nx run-many --target=build",
+    "test": "nx run-many --target=test",
+    "lint": "nx run-many --target=lint",
+    "e2e": "nx run-many --target=e2e"
+  },
+  "devDependencies": {
+    "@nx/js": "^20.0.0",
+    "@nx/node": "^20.0.0",
+    "@nx/react": "^20.0.0",
+    "@nx/vite": "^20.0.0",
+    "eslint": "^9.0.0",
+    "nx": "^20.0.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.5.0"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "openai": "^6.33.0"
+  }
+}

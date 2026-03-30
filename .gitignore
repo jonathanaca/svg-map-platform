@@ -1,0 +1,11 @@
+node_modules/
+dist/
+data/
+storage/uploads/
+storage/processed/
+storage/output/
+.env
+*.log
+.nx/
+.vite/
+coverage/
