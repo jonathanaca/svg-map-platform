@@ -148,6 +148,11 @@ export async function getFloorplan(id: string): Promise<Floorplan> {
   return handleResponse<Floorplan>(response);
 }
 
+export async function deleteFloorplan(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/floorplans/${id}`, { method: 'DELETE' });
+  await handleResponse<{ success: boolean }>(response);
+}
+
 export async function saveCanvasState(floorplanId: string, canvasState: unknown): Promise<void> {
   const response = await fetch(`${API_BASE}/floorplans/${floorplanId}/save`, {
     method: 'POST',
@@ -238,7 +243,20 @@ export async function exportObjectsCsv(floorplanId: string): Promise<string> {
 
 export async function validateFloorplan(floorplanId: string): Promise<ValidationIssue[]> {
   const response = await fetch(`${API_BASE}/floorplans/${floorplanId}/validate`);
-  return handleResponse<ValidationIssue[]>(response);
+  const data = await handleResponse<{
+    valid: boolean;
+    object_count: number;
+    issue_count: number;
+    issues: Array<{ type: string; object_id: string; message: string }>;
+  }>(response);
+  // Transform API response to match frontend ValidationIssue shape
+  return data.issues.map((issue) => ({
+    type: (issue.type === 'duplicate_svg_id' || issue.type === 'invalid_geometry' || issue.type === 'unbounded')
+      ? 'error' as const
+      : 'warning' as const,
+    objectId: issue.object_id,
+    message: issue.message,
+  }));
 }
 
 // ── SVG Import ─────────────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ import sharp from 'sharp';
 import {
   getFloorplan,
   updateFloorplan,
+  deleteFloorplan,
   createFloorplanVersion,
   listVersions,
   getVersion,
@@ -41,6 +42,22 @@ router.get('/:id', (req, res) => {
   } catch (err) {
     console.error('Get floorplan error:', err);
     res.status(500).json({ error: 'Failed to get floorplan' });
+  }
+});
+
+// Delete floorplan
+router.delete('/:id', (req, res) => {
+  try {
+    const floorplan = getFloorplan(req.params.id);
+    if (!floorplan) {
+      res.status(404).json({ error: 'Floorplan not found' });
+      return;
+    }
+    deleteFloorplan(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete floorplan error:', err);
+    res.status(500).json({ error: 'Failed to delete floorplan' });
   }
 });
 

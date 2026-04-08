@@ -341,21 +341,43 @@ export function deleteObject(id: string): void {
 export function bulkUpsertObjects(floorplanId: string, objects: Array<Record<string, unknown>>): void {
   const d = getDb();
   const transaction = d.transaction(() => {
-    d.prepare('DELETE FROM floorplan_objects WHERE floorplan_id = ?').run(floorplanId);
-
     for (const obj of objects) {
-      const cols = ['id', 'floorplan_id'];
-      const placeholders = ['?', '?'];
-      const vals: unknown[] = [obj.id, floorplanId];
+      const id = obj.id as string;
+      if (!id) continue;
 
-      for (const [key, value] of Object.entries(obj)) {
-        if (key === 'id' || key === 'floorplan_id') continue;
-        cols.push(key);
-        placeholders.push('?');
-        vals.push(typeof value === 'object' && value !== null ? JSON.stringify(value) : value);
+      // Check if this object already exists
+      const existing = d.prepare('SELECT id FROM floorplan_objects WHERE id = ?').get(id);
+
+      if (existing) {
+        // Update in place - only update fields that are provided
+        const setClauses: string[] = [];
+        const vals: unknown[] = [];
+
+        for (const [key, value] of Object.entries(obj)) {
+          if (key === 'id' || key === 'floorplan_id') continue;
+          setClauses.push(`${key} = ?`);
+          vals.push(typeof value === 'object' && value !== null ? JSON.stringify(value) : value);
+        }
+
+        if (setClauses.length > 0) {
+          vals.push(id);
+          d.prepare(`UPDATE floorplan_objects SET ${setClauses.join(', ')} WHERE id = ?`).run(...vals);
+        }
+      } else {
+        // Insert new object
+        const cols = ['id', 'floorplan_id'];
+        const placeholders = ['?', '?'];
+        const vals: unknown[] = [id, floorplanId];
+
+        for (const [key, value] of Object.entries(obj)) {
+          if (key === 'id' || key === 'floorplan_id') continue;
+          cols.push(key);
+          placeholders.push('?');
+          vals.push(typeof value === 'object' && value !== null ? JSON.stringify(value) : value);
+        }
+
+        d.prepare(`INSERT INTO floorplan_objects (${cols.join(', ')}) VALUES (${placeholders.join(', ')})`).run(...vals);
       }
-
-      d.prepare(`INSERT INTO floorplan_objects (${cols.join(', ')}) VALUES (${placeholders.join(', ')})`).run(...vals);
     }
   });
 

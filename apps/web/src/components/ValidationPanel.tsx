@@ -81,9 +81,17 @@ export default function ValidationPanel({ floorplanId, onSelectObject }: Props) 
               }
             }}
           >
-            <span className="vp-issue-icon">
-              {issue.type === 'error' ? '\u{1F534}' : '\u{1F7E1}'}
-            </span>
+            <span
+              className="vp-issue-icon"
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                background: issue.type === 'error' ? 'var(--color-danger)' : '#d97706',
+                flexShrink: 0,
+                marginTop: 4,
+              }}
+            />
             <div className="vp-issue-content">
               <span className="vp-issue-message">{issue.message}</span>
               {issue.field && (

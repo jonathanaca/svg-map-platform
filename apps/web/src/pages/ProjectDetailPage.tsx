@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Project, Floorplan } from '@svg-map/types';
-import { getProject, addFloorplan } from '../lib/api.js';
+import { getProject, addFloorplan, deleteFloorplan } from '../lib/api.js';
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, { bg: string; color: string }> = {
@@ -122,8 +122,8 @@ export default function ProjectDetailPage() {
         <h3 style={{ fontSize: '1.1rem', fontWeight: 600 }}>
           Floorplans ({floorplans.length})
         </h3>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>
-          {showForm ? 'Cancel' : '+ Add Floor'}
+        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
+          {showForm ? 'Cancel' : '+ New Floor'}
         </button>
       </div>
 
@@ -208,12 +208,30 @@ export default function ProjectDetailPage() {
                     <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
                       v{fp.version}
                     </span>
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => navigate(`/editor/${fp.id}`)}
-                    >
-                      Edit
-                    </button>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '4px 8px', fontSize: '0.72rem', color: 'var(--color-danger)' }}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (!window.confirm(`Delete floor "${fp.floor_name}"? This cannot be undone.`)) return;
+                          try {
+                            await deleteFloorplan(fp.id);
+                            await load();
+                          } catch (err: unknown) {
+                            setError(err instanceof Error ? err.message : 'Failed to delete floor');
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => navigate(`/editor/${fp.id}`)}
+                      >
+                        Edit
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

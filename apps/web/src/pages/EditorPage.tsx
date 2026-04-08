@@ -334,8 +334,9 @@ export default function EditorPage() {
       await saveCanvasState(floorplanId, stateToSave);
       setDirty(false);
       setLastSaved(new Date());
-    } catch {
-      // Silently fail for auto-save; user can retry manually
+    } catch (err) {
+      console.error('Save failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save. Try again.');
     } finally {
       setSaving(false);
     }
@@ -446,8 +447,8 @@ export default function EditorPage() {
       a.download = `objects-${floorplanId}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch {
-      // silently fail
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to export CSV');
     }
   }, [floorplanId]);
 
@@ -458,8 +459,8 @@ export default function EditorPage() {
         await importObjectsCsv(floorplanId, file);
         const objs = await listObjects(floorplanId);
         setObjects(objs);
-      } catch {
-        // silently fail
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to import CSV');
       }
     },
     [floorplanId],
@@ -936,6 +937,32 @@ export default function EditorPage() {
     return () => window.removeEventListener('keydown', handler);
   }, [selectedObjectId, editing, handleObjectDelete, handleUndo, handleRedo]);
 
+  // Close dropdowns on click outside
+  useEffect(() => {
+    if (!showAmenityPicker && !showFurniturePicker) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-dropdown]')) {
+        setShowAmenityPicker(false);
+        setShowFurniturePicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showAmenityPicker, showFurniturePicker]);
+
+  // Ctrl+S to save
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (dirty && !saving) handleSave();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [dirty, saving, handleSave]);
+
   // Zoom: Ctrl+scroll = zoom, regular scroll = native scroll (pan via overflow:auto)
   const handleWheel = useCallback((e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
@@ -971,8 +998,8 @@ export default function EditorPage() {
   );
 
   // Canvas dimensions
-  const canvasW = imageDims?.width ?? (floorplan?.canvas_width ?? 1000);
-  const canvasH = imageDims?.height ?? (floorplan?.canvas_height ?? 800);
+  const canvasW = Math.max(100, imageDims?.width ?? (floorplan?.canvas_width ?? 1000));
+  const canvasH = Math.max(100, imageDims?.height ?? (floorplan?.canvas_height ?? 800));
   const zoomPercent = Math.round(zoom * 100);
   const objectCount = objects.length;
 
@@ -991,7 +1018,7 @@ export default function EditorPage() {
     );
   }
 
-  if (error || !floorplan) {
+  if (!floorplan) {
     return (
       <div style={{ maxWidth: 600, margin: '40px auto' }}>
         <div className="alert alert-error">{error ?? 'Floorplan not found'}</div>
@@ -1016,16 +1043,36 @@ export default function EditorPage() {
         background: 'var(--color-surface)',
       }}
     >
+      {/* Error toast */}
+      {error && (
+        <div style={{
+          position: 'fixed', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 1000,
+          background: 'var(--color-danger-light)', color: 'var(--color-danger)', border: '1px solid #fecaca',
+          padding: '8px 16px', borderRadius: 8, fontSize: '0.82rem', fontWeight: 500,
+          display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        }}>
+          <span>{error}</span>
+          <button
+            onClick={() => setError(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', fontWeight: 700, fontSize: '1rem', lineHeight: 1, padding: 0 }}
+          >
+            x
+          </button>
+        </div>
+      )}
+
       {/* Top Toolbar */}
       <div className="dc-toolbar" style={{ borderRadius: 0, borderLeft: 'none', borderRight: 'none', position: 'sticky', top: 0, zIndex: 10 }}>
-        {/* Back */}
+        {/* Back + Breadcrumb */}
         <button
           className="dc-tool-btn"
           onClick={() => navigate(`/project/${floorplan.project_id}`)}
           title="Back to project"
         >
-          &larr;
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         </button>
+        <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text)', marginRight: 4 }}>Floor Plan Studio</span>
+        <span style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>/ {floorplan.floor_name}</span>
         <span className="dc-toolbar-sep" />
 
         {/* Mode switcher */}
@@ -1065,18 +1112,18 @@ export default function EditorPage() {
           <>
             <div className="dc-toolbar-group">
               {([
-                { tool: 'select' as Tool, label: 'Select', icon: '\u25B6' },
-                { tool: 'rect' as Tool, label: 'Rect', icon: '\u25AD' },
-                { tool: 'polygon' as Tool, label: 'Polygon', icon: '\u2B1F' },
-                { tool: 'pen' as Tool, label: 'Place', icon: '\u270E' },
-              ]).map(({ tool, label, icon }) => (
+                { tool: 'select' as Tool, label: 'Select', hint: '(V)', svgIcon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg> },
+                { tool: 'rect' as Tool, label: 'Rect', hint: '(R)', svgIcon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> },
+                { tool: 'polygon' as Tool, label: 'Polygon', hint: '(P)', svgIcon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 22 8.5 18 20 6 20 2 8.5"/></svg> },
+                { tool: 'pen' as Tool, label: 'Place', hint: '(Click)', svgIcon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg> },
+              ]).map(({ tool, label, hint, svgIcon }) => (
                 <button
                   key={tool}
                   className={`dc-tool-btn ${activeTool === tool && !placingAmenity && !drawingOutline ? 'dc-tool-btn--active' : ''}`}
                   onClick={() => { setActiveTool(tool); setOutlinePoints([]); setDrawingOutline(false); setRectDraw(null); setPlacingAmenity(null); setShowAmenityPicker(false); setPlacingFurniture(null); setShowFurniturePicker(false); }}
-                  title={label}
+                  title={`${label} ${hint}`}
                 >
-                  <span dangerouslySetInnerHTML={{ __html: icon }} />
+                  {svgIcon}
                   <span className="dc-tool-label">{label}</span>
                 </button>
               ))}
@@ -1090,10 +1137,10 @@ export default function EditorPage() {
               <span className="dc-tool-label">{drawingOutline ? `Drawing... (${outlinePoints.length} pts)` : 'Draw Outline'}</span>
             </button>
             {/* Amenity picker */}
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative' }} data-dropdown>
               <button
                 className={`dc-tool-btn ${placingAmenity ? 'dc-tool-btn--active' : ''}`}
-                onClick={() => { setShowAmenityPicker(!showAmenityPicker); }}
+                onClick={() => { setShowAmenityPicker(!showAmenityPicker); setShowFurniturePicker(false); }}
                 title="Place amenity icon"
                 style={placingAmenity ? { background: '#fde8e8', color: '#dc2626', borderColor: '#dc2626' } : undefined}
               >
@@ -1133,7 +1180,7 @@ export default function EditorPage() {
               )}
             </div>
             {/* Furniture/Assets picker */}
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative' }} data-dropdown>
               <button
                 className={`dc-tool-btn ${placingFurniture ? 'dc-tool-btn--active' : ''}`}
                 onClick={() => { setShowFurniturePicker(!showFurniturePicker); setShowAmenityPicker(false); }}
@@ -1217,17 +1264,20 @@ export default function EditorPage() {
         {editorMode !== 'preview' && (
         <div className="dc-toolbar-group">
           <button
-            className="dc-tool-btn"
+            className={`dc-tool-btn ${dirty ? 'dc-tool-btn--active' : ''}`}
             onClick={handleSave}
             disabled={saving || !dirty}
-            title="Save"
+            title={saving ? 'Saving...' : dirty ? 'Save changes (Ctrl+S)' : 'No unsaved changes'}
           >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             <span className="dc-tool-label">{saving ? 'Saving...' : 'Save'}</span>
           </button>
           <button className="dc-tool-btn" disabled={undoStack.current.length === 0} title="Undo (Ctrl+Z)" onClick={handleUndo}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
             <span className="dc-tool-label">Undo</span>
           </button>
           <button className="dc-tool-btn" disabled={redoStack.current.length === 0} title="Redo (Ctrl+Shift+Z)" onClick={handleRedo}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
             <span className="dc-tool-label">Redo</span>
           </button>
           <button
@@ -1262,21 +1312,27 @@ export default function EditorPage() {
           <button
             className={`dc-tool-btn ${editorState.gridEnabled ? 'dc-tool-btn--active' : ''}`}
             onClick={toggleGrid}
-            title="Toggle grid"
+            title={`Toggle grid (${editorState.gridEnabled ? 'On' : 'Off'})`}
           >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
             <span className="dc-tool-label">Grid</span>
           </button>
           <button
             className={`dc-tool-btn ${editorState.snapEnabled ? 'dc-tool-btn--active' : ''}`}
             onClick={toggleSnap}
-            title="Toggle snap"
+            title={`Snap to grid (${editorState.snapEnabled ? 'On' : 'Off'})`}
           >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="5 12 12 5 19 12"/><line x1="12" y1="5" x2="12" y2="19"/></svg>
             <span className="dc-tool-label">Snap</span>
           </button>
-          <button className="dc-tool-btn" onClick={() => setZoom((z) => Math.min(10, z * 1.2))} title="Zoom in">+</button>
+          <button className="dc-tool-btn" onClick={() => setZoom((z) => Math.min(10, z * 1.2))} title="Zoom in (Ctrl+Scroll up)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          </button>
           <span className="dc-zoom-label">{zoomPercent}%</span>
-          <button className="dc-tool-btn" onClick={() => setZoom((z) => Math.max(0.2, z / 1.2))} title="Zoom out">-</button>
-          <button className="dc-tool-btn" onClick={() => { setZoom(1); if (containerRef.current) { containerRef.current.scrollLeft = 0; containerRef.current.scrollTop = 0; } }} title="Reset zoom">Fit</button>
+          <button className="dc-tool-btn" onClick={() => setZoom((z) => Math.max(0.2, z / 1.2))} title="Zoom out (Ctrl+Scroll down)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          </button>
+          <button className="dc-tool-btn" onClick={() => { setZoom(1); if (containerRef.current) { containerRef.current.scrollLeft = 0; containerRef.current.scrollTop = 0; } }} title="Reset zoom to 100%">Fit</button>
         </div>
 
         {/* Spacer + floor name */}
@@ -1306,9 +1362,7 @@ export default function EditorPage() {
               ? '1fr 240px'
               : editorMode === 'label'
                 ? '1fr'
-                : selectedObjectId
-                  ? '180px 1fr 220px'
-                  : '180px 1fr',
+                : '180px 1fr 220px',
           gridTemplateRows: editorMode === 'label' ? '1fr auto' : '1fr',
           overflow: 'hidden',
         }}
@@ -1362,30 +1416,23 @@ export default function EditorPage() {
             onMouseLeave={handleMouseUp}
             onDoubleClick={handleDoubleClick}
           >
-            {/* Grid overlay */}
+            {/* Grid pattern definition */}
             {editorState.gridEnabled && (
-              <>
-                <defs>
-                  <pattern
-                    id="editor-grid"
-                    width={editorState.gridSize}
-                    height={editorState.gridSize}
-                    patternUnits="userSpaceOnUse"
-                  >
-                    <path
-                      d={`M ${editorState.gridSize} 0 L 0 0 0 ${editorState.gridSize}`}
-                      fill="none"
-                      stroke="rgba(0,0,0,0.08)"
-                      strokeWidth="0.5"
-                    />
-                  </pattern>
-                </defs>
-                <rect
-                  x={0} y={0} width={canvasW} height={canvasH}
-                  fill="url(#editor-grid)"
-                  style={{ pointerEvents: 'none' }}
-                />
-              </>
+              <defs>
+                <pattern
+                  id="editor-grid"
+                  width={editorState.gridSize}
+                  height={editorState.gridSize}
+                  patternUnits="userSpaceOnUse"
+                >
+                  <path
+                    d={`M ${editorState.gridSize} 0 L 0 0 0 ${editorState.gridSize}`}
+                    fill="none"
+                    stroke="rgba(0,0,0,0.08)"
+                    strokeWidth="0.5"
+                  />
+                </pattern>
+              </defs>
             )}
 
             {/* White canvas background */}
@@ -1413,6 +1460,7 @@ export default function EditorPage() {
             {/* Grid on top of image (re-render so it's visible over the image) */}
             {editorState.gridEnabled && (
               <rect
+                data-ui-only="true"
                 x={0} y={0} width={canvasW} height={canvasH}
                 fill="url(#editor-grid)"
                 style={{ pointerEvents: 'none' }}
@@ -1476,6 +1524,7 @@ export default function EditorPage() {
                       return (
                         <circle
                           key={h}
+                          data-ui-only="true"
                           cx={hx} cy={hy} r={handleR}
                           fill="#f59e0b" stroke="#fff" strokeWidth={strokeW * 0.75}
                           style={{ cursor: HANDLE_CURSORS[h] }}
@@ -1543,6 +1592,7 @@ export default function EditorPage() {
             {/* Selection dashed outline */}
             {selectedObject && selectedObject.geometry.type === 'rect' && (
               <rect
+                data-ui-only="true"
                 x={(selectedObject.geometry.x ?? 0) - 2}
                 y={(selectedObject.geometry.y ?? 0) - 2}
                 width={(selectedObject.geometry.width ?? 50) + 4}
@@ -1558,6 +1608,7 @@ export default function EditorPage() {
             {/* Rect drag preview */}
             {rectDraw && (
               <rect
+                data-ui-only="true"
                 x={Math.min(rectDraw.startX, rectDraw.currentX)}
                 y={Math.min(rectDraw.startY, rectDraw.currentY)}
                 width={Math.abs(rectDraw.currentX - rectDraw.startX)}
@@ -1572,7 +1623,7 @@ export default function EditorPage() {
 
             {/* Polygon outline drawing preview */}
             {activeTool === 'polygon' && outlinePoints.length > 0 && (
-              <g style={{ pointerEvents: 'none' }}>
+              <g data-ui-only="true" style={{ pointerEvents: 'none' }}>
                 <polyline
                   points={outlinePoints.map(p => `${p.x},${p.y}`).join(' ')}
                   fill="none"
@@ -1657,15 +1708,17 @@ export default function EditorPage() {
                   const clone = svgEl.cloneNode(true) as SVGSVGElement;
 
                   // Set proper dimensions
-                  const w = floorplan.canvas_width ?? 1000;
-                  const h = floorplan.canvas_height ?? 800;
+                  const w = canvasW;
+                  const h = canvasH;
                   clone.setAttribute('viewBox', `0 0 ${w} ${h}`);
                   clone.setAttribute('width', String(w));
                   clone.setAttribute('height', String(h));
                   clone.removeAttribute('style');
 
-                  // Remove selection highlights and UI elements
+                  // Remove selection highlights, grid, resize handles, and other UI elements
                   clone.querySelectorAll('[data-ui-only]').forEach(el => el.remove());
+                  // Remove grid pattern defs
+                  clone.querySelectorAll('defs').forEach(el => el.remove());
 
                   const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' +
                     new XMLSerializer().serializeToString(clone);
@@ -1691,13 +1744,14 @@ export default function EditorPage() {
                   if (!svgRef.current || !floorplan) return;
                   const svgEl = svgRef.current;
                   const clone = svgEl.cloneNode(true) as SVGSVGElement;
-                  const w = floorplan.canvas_width ?? 1000;
-                  const h = floorplan.canvas_height ?? 800;
+                  const w = canvasW;
+                  const h = canvasH;
                   clone.setAttribute('viewBox', `0 0 ${w} ${h}`);
                   clone.setAttribute('width', String(w));
                   clone.setAttribute('height', String(h));
                   clone.removeAttribute('style');
                   clone.querySelectorAll('[data-ui-only]').forEach(el => el.remove());
+                  clone.querySelectorAll('defs').forEach(el => el.remove());
 
                   const svgString = new XMLSerializer().serializeToString(clone);
                   // Convert to PNG via canvas
@@ -1839,16 +1893,30 @@ export default function EditorPage() {
           color: 'var(--color-text-secondary)',
         }}
       >
-        <span>Zoom: {zoomPercent}%</span>
-        <span>Objects: {objectCount}</span>
-        <span>Grid: {editorState.gridSize}px</span>
+        <span>{zoomPercent}% zoom</span>
+        <span style={{ width: 1, height: 12, background: 'var(--color-border)' }} />
+        <span>{objectCount} object{objectCount !== 1 ? 's' : ''}</span>
+        <span style={{ width: 1, height: 12, background: 'var(--color-border)' }} />
+        <span>Grid: {editorState.gridSize}px {editorState.gridEnabled ? '' : '(off)'}</span>
+        <span style={{ width: 1, height: 12, background: 'var(--color-border)' }} />
         <span>Snap: {editorState.snapEnabled ? 'On' : 'Off'}</span>
         {selectedObject && (
-          <span>Selected: {selectedObject.label || selectedObject.svg_id || selectedObject.id.slice(0, 8)}</span>
+          <>
+            <span style={{ width: 1, height: 12, background: 'var(--color-border)' }} />
+            <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>
+              {selectedObject.label || selectedObject.svg_id || selectedObject.id.slice(0, 8)}
+              <span style={{ fontWeight: 400, color: 'var(--color-text-secondary)', marginLeft: 4 }}>
+                ({selectedObject.object_type}) {Math.round(selectedObject.geometry.width ?? 0)}x{Math.round(selectedObject.geometry.height ?? 0)}
+              </span>
+            </span>
+          </>
         )}
-        <span>Mode: {editorMode}</span>
-        <span style={{ marginLeft: 'auto' }}>
-          {floorplan.floor_name} &middot; v{floorplan.version}
+        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ textTransform: 'capitalize' }}>{editorMode} mode</span>
+          <span style={{ width: 1, height: 12, background: 'var(--color-border)' }} />
+          <span>{floorplan.floor_name} v{floorplan.version}</span>
+          {dirty && <span style={{ color: '#d97706', fontWeight: 600 }}>Unsaved</span>}
+          {!dirty && lastSaved && <span style={{ color: 'var(--color-success)' }}>Saved</span>}
         </span>
       </div>
     </div>

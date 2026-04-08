@@ -71,7 +71,11 @@ export default function PropertiesPanel({ object, onChange, onDelete }: Props) {
     return (
       <div className="pp-panel">
         <div className="pp-empty">
-          <span className="pp-empty-icon">&#9432;</span>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+          </svg>
           <p>Select an object on the canvas to view its properties.</p>
         </div>
       </div>
@@ -338,7 +342,7 @@ export default function PropertiesPanel({ object, onChange, onDelete }: Props) {
             onBlur={() => setConfirmDelete(false)}
             style={{ width: '100%' }}
           >
-            {confirmDelete ? 'Confirm Delete' : 'Delete Object'}
+            {confirmDelete ? 'Click again to confirm' : 'Delete Object (Del)'}
           </button>
         </div>
       </div>
