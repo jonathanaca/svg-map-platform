@@ -54,6 +54,35 @@ const AMENITY_ICONS: { id: string; label: string; emoji: string }[] = [
   { id: 'presentation', label: 'Presentation', emoji: 'P' },
 ];
 
+const FURNITURE_ASSETS: { id: string; label: string; icon: string; w: number; h: number; color: string }[] = [
+  // Furniture
+  { id: 'desk-single', label: 'Single Desk', icon: 'D', w: 30, h: 20, color: '#2563eb' },
+  { id: 'desk-pair', label: 'Desk Pair', icon: 'DD', w: 50, h: 20, color: '#2563eb' },
+  { id: 'desk-pod', label: 'Desk Pod (4)', icon: '4D', w: 50, h: 40, color: '#2563eb' },
+  { id: 'table-small', label: 'Small Table', icon: 'T', w: 30, h: 30, color: '#92400e' },
+  { id: 'table-medium', label: 'Medium Table', icon: 'T', w: 50, h: 30, color: '#92400e' },
+  { id: 'table-large', label: 'Large Table', icon: 'T', w: 80, h: 40, color: '#92400e' },
+  { id: 'table-round', label: 'Round Table', icon: 'O', w: 30, h: 30, color: '#92400e' },
+  { id: 'standing-desk', label: 'Standing Desk', icon: 'SD', w: 30, h: 15, color: '#4f46e5' },
+  // Seating
+  { id: 'bench', label: 'Bench', icon: 'B', w: 50, h: 12, color: '#059669' },
+  { id: 'lounge-chair', label: 'Lounge Chair', icon: 'LC', w: 25, h: 25, color: '#059669' },
+  { id: 'sofa', label: 'Sofa', icon: 'So', w: 55, h: 22, color: '#059669' },
+  { id: 'phone-booth', label: 'Phone Booth', icon: 'PB', w: 25, h: 25, color: '#7c3aed' },
+  // Storage & utilities
+  { id: 'lockers', label: 'Lockers', icon: 'Lk', w: 40, h: 15, color: '#4b5563' },
+  { id: 'filing-cabinet', label: 'Filing Cabinet', icon: 'FC', w: 15, h: 20, color: '#4b5563' },
+  { id: 'bookshelf', label: 'Bookshelf', icon: 'BS', w: 40, h: 12, color: '#92400e' },
+  { id: 'printer', label: 'Printer', icon: 'Pr', w: 20, h: 20, color: '#374151' },
+  // Decorative
+  { id: 'plant', label: 'Plant', icon: 'Pl', w: 12, h: 12, color: '#16a34a' },
+  { id: 'plant-large', label: 'Large Plant', icon: 'PL', w: 18, h: 18, color: '#16a34a' },
+  { id: 'partition', label: 'Partition Wall', icon: '||', w: 60, h: 4, color: '#6b7280' },
+  { id: 'whiteboard', label: 'Whiteboard', icon: 'WB', w: 40, h: 5, color: '#e5e7eb' },
+  { id: 'tv-screen', label: 'TV/Screen', icon: 'TV', w: 35, h: 5, color: '#1f2937' },
+  { id: 'bin', label: 'Waste Bin', icon: 'Bn', w: 8, h: 8, color: '#6b7280' },
+];
+
 function getHandlePos(h: Handle, x: number, y: number, w: number, h2: number): [number, number] {
   const mx = x + w / 2, my = y + h2 / 2;
   switch (h) {
@@ -110,6 +139,69 @@ export default function EditorPage() {
   const [objects, setObjects] = useState<MapObject[]>([]);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
 
+  // Undo/Redo history
+  const undoStack = useRef<MapObject[][]>([]);
+  const redoStack = useRef<MapObject[][]>([]);
+  const lastSnapshot = useRef<string>('');
+
+  const pushUndo = useCallback(() => {
+    const snap = JSON.stringify(objects);
+    if (snap === lastSnapshot.current) return;
+    undoStack.current.push(JSON.parse(lastSnapshot.current || '[]'));
+    if (undoStack.current.length > 50) undoStack.current.shift();
+    redoStack.current = [];
+    lastSnapshot.current = snap;
+  }, [objects]);
+
+  // Take snapshot after objects change settles (debounced)
+  const snapshotTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (snapshotTimer.current) clearTimeout(snapshotTimer.current);
+    snapshotTimer.current = setTimeout(() => {
+      const snap = JSON.stringify(objects);
+      if (snap !== lastSnapshot.current && lastSnapshot.current !== '') {
+        undoStack.current.push(JSON.parse(lastSnapshot.current));
+        if (undoStack.current.length > 50) undoStack.current.shift();
+        redoStack.current = [];
+      }
+      lastSnapshot.current = snap;
+    }, 500);
+  }, [objects]);
+
+  // Initialize snapshot when objects first load
+  useEffect(() => {
+    if (objects.length > 0 && lastSnapshot.current === '') {
+      lastSnapshot.current = JSON.stringify(objects);
+    }
+  }, [objects]);
+
+  const handleUndo = useCallback(() => {
+    if (undoStack.current.length === 0) return;
+    const prev = undoStack.current.pop()!;
+    redoStack.current.push(JSON.parse(lastSnapshot.current));
+    lastSnapshot.current = JSON.stringify(prev);
+    setObjects(prev);
+    setSelectedObjectId(null);
+    setDirty(true);
+    // Sync to API
+    if (floorplanId) {
+      bulkUpsertObjects(floorplanId, prev).catch(() => {});
+    }
+  }, [floorplanId]);
+
+  const handleRedo = useCallback(() => {
+    if (redoStack.current.length === 0) return;
+    const next = redoStack.current.pop()!;
+    undoStack.current.push(JSON.parse(lastSnapshot.current));
+    lastSnapshot.current = JSON.stringify(next);
+    setObjects(next);
+    setSelectedObjectId(null);
+    setDirty(true);
+    if (floorplanId) {
+      bulkUpsertObjects(floorplanId, next).catch(() => {});
+    }
+  }, [floorplanId]);
+
   // Layer state
   const [layers, setLayers] = useState<EditorLayer[]>(DEFAULT_LAYERS);
   const [activeLayerId, setActiveLayerId] = useState<string>('rooms');
@@ -121,6 +213,10 @@ export default function EditorPage() {
   // Amenity placement state
   const [placingAmenity, setPlacingAmenity] = useState<string | null>(null);
   const [showAmenityPicker, setShowAmenityPicker] = useState(false);
+
+  // Furniture placement state
+  const [placingFurniture, setPlacingFurniture] = useState<string | null>(null);
+  const [showFurniturePicker, setShowFurniturePicker] = useState(false);
 
   // Bottom panel tab state (for label mode)
   const [bottomTab, setBottomTab] = useState<'labelling' | 'validation'>('labelling');
@@ -481,6 +577,33 @@ export default function EditorPage() {
       return;
     }
 
+    // ── Furniture placement mode ──
+    if (placingFurniture && floorplanId) {
+      const asset = FURNITURE_ASSETS.find(a => a.id === placingFurniture);
+      if (asset) {
+        const existingFurniture = objects.filter(o => o.object_type === 'decorative').length;
+        createObject(floorplanId, {
+          object_type: 'decorative',
+          label: asset.label,
+          svg_id: `furniture-${String(existingFurniture + 1).padStart(3, '0')}`,
+          geometry: { type: 'rect', x: x - asset.w / 2, y: y - asset.h / 2, width: asset.w, height: asset.h },
+          layer: 'background',
+          fill_color: asset.color + '88',
+          stroke_color: asset.color,
+          opacity: 1,
+          visible: true,
+          locked: false,
+          z_index: objects.length,
+          metadata: { furnitureType: asset.id },
+        }).then((newObj) => {
+          setObjects((prev) => [...prev, newObj]);
+          setDirty(true);
+        }).catch(console.error);
+      }
+      e.preventDefault();
+      return;
+    }
+
     // ── Polygon tool: click to add points, click green dot to close ──
     if (activeTool === 'polygon') {
       if (outlinePoints.length >= 3) {
@@ -523,7 +646,19 @@ export default function EditorPage() {
           return;
         }
       }
-      setOutlinePoints(prev => [...prev, { x, y }]);
+      // Shift key: constrain to horizontal or vertical from last point
+      let px = x, py = y;
+      if (e.shiftKey && outlinePoints.length > 0) {
+        const last = outlinePoints[outlinePoints.length - 1];
+        const dx = Math.abs(x - last.x);
+        const dy = Math.abs(y - last.y);
+        if (dx > dy) {
+          py = last.y; // horizontal line
+        } else {
+          px = last.x; // vertical line
+        }
+      }
+      setOutlinePoints(prev => [...prev, { x: px, y: py }]);
       e.preventDefault();
       return;
     }
@@ -772,20 +907,34 @@ export default function EditorPage() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (editing) return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
       if (e.key === 'Escape') {
         setSelectedObjectId(null);
+        setPlacingAmenity(null);
+        setPlacingFurniture(null);
+        setDrawingOutline(false);
+        setOutlinePoints([]);
         return;
       }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObjectId) {
-        const tag = (e.target as HTMLElement).tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
         e.preventDefault();
         handleObjectDelete(selectedObjectId);
+      }
+      // Ctrl+Z = Undo, Ctrl+Shift+Z or Ctrl+Y = Redo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'Z' || e.key === 'y')) {
+        e.preventDefault();
+        handleRedo();
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [selectedObjectId, editing, handleObjectDelete]);
+  }, [selectedObjectId, editing, handleObjectDelete, handleUndo, handleRedo]);
 
   // Zoom: Ctrl+scroll = zoom, regular scroll = native scroll (pan via overflow:auto)
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -924,7 +1073,7 @@ export default function EditorPage() {
                 <button
                   key={tool}
                   className={`dc-tool-btn ${activeTool === tool && !placingAmenity && !drawingOutline ? 'dc-tool-btn--active' : ''}`}
-                  onClick={() => { setActiveTool(tool); setOutlinePoints([]); setDrawingOutline(false); setRectDraw(null); setPlacingAmenity(null); setShowAmenityPicker(false); }}
+                  onClick={() => { setActiveTool(tool); setOutlinePoints([]); setDrawingOutline(false); setRectDraw(null); setPlacingAmenity(null); setShowAmenityPicker(false); setPlacingFurniture(null); setShowFurniturePicker(false); }}
                   title={label}
                 >
                   <span dangerouslySetInnerHTML={{ __html: icon }} />
@@ -983,6 +1132,83 @@ export default function EditorPage() {
                 </div>
               )}
             </div>
+            {/* Furniture/Assets picker */}
+            <div style={{ position: 'relative' }}>
+              <button
+                className={`dc-tool-btn ${placingFurniture ? 'dc-tool-btn--active' : ''}`}
+                onClick={() => { setShowFurniturePicker(!showFurniturePicker); setShowAmenityPicker(false); }}
+                title="Place furniture & assets"
+                style={placingFurniture ? { background: '#f0fdf4', color: '#16a34a', borderColor: '#16a34a' } : undefined}
+              >
+                <span className="dc-tool-label">{placingFurniture ? FURNITURE_ASSETS.find(a => a.id === placingFurniture)?.label : 'Assets'}</span>
+              </button>
+              {showFurniturePicker && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, zIndex: 100,
+                  background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+                  borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 4,
+                  display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, minWidth: 240,
+                  maxHeight: 350, overflowY: 'auto',
+                }}>
+                  <div style={{ gridColumn: '1/-1', padding: '4px 8px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Furniture</div>
+                  {FURNITURE_ASSETS.slice(0, 8).map(a => (
+                    <button
+                      key={a.id}
+                      onClick={() => { setPlacingFurniture(a.id); setShowFurniturePicker(false); setPlacingAmenity(null); setActiveTool('select'); setDrawingOutline(false); }}
+                      style={{
+                        padding: '5px 8px', border: 'none', borderRadius: 4,
+                        background: placingFurniture === a.id ? '#f0fdf4' : 'transparent',
+                        cursor: 'pointer', fontSize: '0.7rem', fontWeight: 500,
+                        textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
+                      }}
+                    >
+                      <span style={{ width: 18, height: 14, borderRadius: 2, background: a.color + '66', border: `1px solid ${a.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', fontWeight: 700, color: a.color, flexShrink: 0 }}>{a.icon}</span>
+                      {a.label}
+                    </button>
+                  ))}
+                  <div style={{ gridColumn: '1/-1', padding: '4px 8px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderTop: '1px solid var(--color-border)', marginTop: 2 }}>Seating</div>
+                  {FURNITURE_ASSETS.slice(8, 12).map(a => (
+                    <button
+                      key={a.id}
+                      onClick={() => { setPlacingFurniture(a.id); setShowFurniturePicker(false); setPlacingAmenity(null); setActiveTool('select'); setDrawingOutline(false); }}
+                      style={{
+                        padding: '5px 8px', border: 'none', borderRadius: 4,
+                        background: placingFurniture === a.id ? '#f0fdf4' : 'transparent',
+                        cursor: 'pointer', fontSize: '0.7rem', fontWeight: 500,
+                        textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
+                      }}
+                    >
+                      <span style={{ width: 18, height: 14, borderRadius: 2, background: a.color + '66', border: `1px solid ${a.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', fontWeight: 700, color: a.color, flexShrink: 0 }}>{a.icon}</span>
+                      {a.label}
+                    </button>
+                  ))}
+                  <div style={{ gridColumn: '1/-1', padding: '4px 8px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderTop: '1px solid var(--color-border)', marginTop: 2 }}>Utilities & Decor</div>
+                  {FURNITURE_ASSETS.slice(12).map(a => (
+                    <button
+                      key={a.id}
+                      onClick={() => { setPlacingFurniture(a.id); setShowFurniturePicker(false); setPlacingAmenity(null); setActiveTool('select'); setDrawingOutline(false); }}
+                      style={{
+                        padding: '5px 8px', border: 'none', borderRadius: 4,
+                        background: placingFurniture === a.id ? '#f0fdf4' : 'transparent',
+                        cursor: 'pointer', fontSize: '0.7rem', fontWeight: 500,
+                        textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
+                      }}
+                    >
+                      <span style={{ width: 18, height: 14, borderRadius: 2, background: a.color + '66', border: `1px solid ${a.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', fontWeight: 700, color: a.color, flexShrink: 0 }}>{a.icon}</span>
+                      {a.label}
+                    </button>
+                  ))}
+                  {placingFurniture && (
+                    <button
+                      onClick={() => { setPlacingFurniture(null); setShowFurniturePicker(false); }}
+                      style={{ gridColumn: '1 / -1', padding: '6px 8px', border: '1px solid var(--color-border)', borderRadius: 4, background: 'var(--color-bg)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600, marginTop: 2 }}
+                    >
+                      Stop Placing
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             <span className="dc-toolbar-sep" />
           </>
         )}
@@ -998,10 +1224,10 @@ export default function EditorPage() {
           >
             <span className="dc-tool-label">{saving ? 'Saving...' : 'Save'}</span>
           </button>
-          <button className="dc-tool-btn" disabled title="Undo">
+          <button className="dc-tool-btn" disabled={undoStack.current.length === 0} title="Undo (Ctrl+Z)" onClick={handleUndo}>
             <span className="dc-tool-label">Undo</span>
           </button>
-          <button className="dc-tool-btn" disabled title="Redo">
+          <button className="dc-tool-btn" disabled={redoStack.current.length === 0} title="Redo (Ctrl+Shift+Z)" onClick={handleRedo}>
             <span className="dc-tool-label">Redo</span>
           </button>
           <button
