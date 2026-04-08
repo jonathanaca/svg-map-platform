@@ -8,6 +8,10 @@ import filesRouter from './routes/files.js';
 import generateRouter from './routes/generate.js';
 import tracingRouter from './routes/tracing.js';
 import analyzeRouter from './routes/analyze.js';
+import projectsRouter from './routes/projects.js';
+import floorplansRouter from './routes/floorplans.js';
+import objectsRouter from './routes/objects.js';
+import importRouter from './routes/import.js';
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
@@ -25,6 +29,10 @@ app.use('/api/files', filesRouter);
 app.use('/api/jobs', generateRateLimit, generateRouter);
 app.use('/api/jobs', tracingRouter);
 app.use('/api/jobs', analyzeRouter);
+app.use('/api/projects', projectsRouter);
+app.use('/api/floorplans', floorplansRouter);
+app.use('/api', objectsRouter);
+app.use('/api/import', importRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {
