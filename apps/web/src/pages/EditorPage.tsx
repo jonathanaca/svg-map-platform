@@ -313,7 +313,7 @@ export default function EditorPage() {
           if (fp.canvas_state.viewport?.zoom) {
             setZoom(fp.canvas_state.viewport.zoom);
           }
-          if (fp.canvas_state.layers.length > 0) {
+          if (fp.canvas_state.layers && fp.canvas_state.layers.length > 0) {
             // Merge any missing default layers into saved state
             const savedIds = new Set(fp.canvas_state.layers.map((l: EditorLayer) => l.id));
             const merged = [...fp.canvas_state.layers];
