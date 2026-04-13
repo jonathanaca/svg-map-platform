@@ -36,7 +36,7 @@ app.use('/api/import', importRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', version: '2.1.0', timestamp: new Date().toISOString() });
 });
 
 // Serve frontend in production
