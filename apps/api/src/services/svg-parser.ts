@@ -2,8 +2,10 @@ import { JSDOM } from 'jsdom';
 
 export interface ParsedLayer {
   id: string;
+  name: string;
   label: string;
   elementCount: number;
+  objectCount: number;
 }
 
 export interface ParsedObject {
@@ -274,10 +276,13 @@ export function analyzeSvg(svgContent: string): SvgAnalysis {
       // Use a readable label: capitalize the mapped layer name
       const displayLabel = mappedId.charAt(0).toUpperCase() + mappedId.slice(1);
       const childElements = g.querySelectorAll('rect, polygon, circle, path, ellipse, polyline, line, text, image');
+      const layerName = `${displayLabel} (${rawLabel})`;
       layers.push({
         id: mappedId,
-        label: `${displayLabel} (${rawLabel})`,
+        name: layerName,
+        label: layerName,
         elementCount: childElements.length,
+        objectCount: childElements.length,
       });
     }
   }
