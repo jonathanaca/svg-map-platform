@@ -8,6 +8,7 @@ import {
   deleteProject,
   createFloorplan,
   listFloorplans,
+  createObject,
 } from '../db/schema.js';
 
 const router = Router();
@@ -167,9 +168,6 @@ router.post('/import-quote', (req, res) => {
     const roomsPerFloor = Math.ceil(rooms / floors);
     const desksPerFloor = Math.ceil(desks / floors);
     const lockersPerFloor = Math.ceil(lockers / floors);
-
-    // Import createObject
-    const { createObject } = require('../db/schema.js');
 
     let roomCount = 0, deskCount = 0, lockerCount = 0;
     for (let f = 0; f < floors; f++) {
