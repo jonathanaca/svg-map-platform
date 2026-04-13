@@ -272,7 +272,7 @@ export class LayerManager {
       if (this.publishMode) {
         // PlaceOS mode: overlay with no fill, ID format area-{mapId}-status
         const mapId = room.id;
-        const placeosId = `area-${mapId}-status`;
+        const placeosId = mapId.startsWith('area-') ? `${mapId}-status` : `area-${mapId}-status`;
         elements.push({
           tag: 'rect',
           attributes: {

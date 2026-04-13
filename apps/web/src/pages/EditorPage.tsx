@@ -2049,10 +2049,34 @@ export default function EditorPage() {
                     </div>
 
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         if (!floorplan) return;
                         const w = canvasW;
                         const h = canvasH;
+
+                        // Fetch source floorplan image and convert to base64 for embedding
+                        let bgDataUri = '';
+                        let bgType = 'image/svg+xml';
+                        try {
+                          const bgResp = await fetch(`/api/floorplans/${floorplan.id}/source-preview`);
+                          if (bgResp.ok) {
+                            const contentType = bgResp.headers.get('content-type') || 'image/svg+xml';
+                            bgType = contentType;
+                            if (contentType.includes('svg')) {
+                              // Embed SVG as data URI
+                              const svgText = await bgResp.text();
+                              bgDataUri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgText)));
+                            } else {
+                              // Raster image — convert blob to data URI
+                              const blob = await bgResp.blob();
+                              bgDataUri = await new Promise<string>((resolve) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result as string);
+                                reader.readAsDataURL(blob);
+                              });
+                            }
+                          }
+                        } catch { /* continue without background */ }
 
                         // Build SVG from scratch with proper PlaceOS structure
                         const nonBookable = objects.filter(o => o.object_type !== 'room' && o.object_type !== 'desk');
@@ -2084,6 +2108,13 @@ export default function EditorPage() {
                         svg += `  .deskLabel { font-family: Arial, sans-serif; font-weight: 400; fill: #333; text-anchor: middle; dominant-baseline: central; }\n`;
                         svg += `</style>\n`;
 
+                        // Layer: bkd (background floorplan image)
+                        if (bgDataUri) {
+                          svg += `<g id="bkd">\n`;
+                          svg += `  <image href="${bgDataUri}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/>\n`;
+                          svg += `</g>\n`;
+                        }
+
                         // Layer: outline (area/zone objects)
                         const outlines = nonBookable.filter(o => o.object_type === 'area' || o.object_type === 'zone');
                         if (outlines.length > 0) {
@@ -2112,7 +2143,7 @@ export default function EditorPage() {
                         svg += `<g id="room-bookings">\n`;
                         for (const obj of bookable) {
                           const mapId = obj.svg_id || obj.id;
-                          const placeosId = `area-${mapId}-status`;
+                          const placeosId = mapId.startsWith('area-') ? `${mapId}-status` : `area-${mapId}-status`;
                           svg += `  ${renderShape(obj, `id="${escXml(placeosId)}" class="bookable" data-map-id="${escXml(mapId)}" data-type="${obj.object_type}"`)}\n`;
                         }
                         svg += `</g>\n`;
