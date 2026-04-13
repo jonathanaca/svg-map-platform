@@ -4,13 +4,14 @@ import type { MapObjectType } from '@svg-map/types';
 import { analyzeSvgImport, confirmSvgImport } from '../lib/api.js';
 import type { SvgAnalysis, SvgAnalysisObject } from '../lib/api.js';
 
-type ImportStep = 'upload' | 'review' | 'map' | 'confirm';
+type ImportStep = 'upload' | 'review' | 'map' | 'outline' | 'confirm';
 
 const STEPS: { key: ImportStep; label: string; number: number }[] = [
   { key: 'upload', label: 'Upload', number: 1 },
   { key: 'review', label: 'Review', number: 2 },
   { key: 'map', label: 'Map', number: 3 },
-  { key: 'confirm', label: 'Confirm', number: 4 },
+  { key: 'outline', label: 'Outline', number: 4 },
+  { key: 'confirm', label: 'Confirm', number: 5 },
 ];
 
 const OBJECT_TYPES: MapObjectType[] = [
@@ -40,6 +41,11 @@ export default function ImportPage() {
 
   // Map step: object mappings
   const [mappings, setMappings] = useState<ObjectMapping[]>([]);
+
+  // Outline step
+  const [outlinePoints, setOutlinePoints] = useState<{ x: number; y: number }[]>([]);
+  const [svgDims, setSvgDims] = useState<{ width: number; height: number } | null>(null);
+  const outlineSvgRef = useRef<SVGSVGElement>(null);
 
   // Confirm step
   const [projectName, setProjectName] = useState('');
@@ -161,6 +167,7 @@ export default function ImportPage() {
         projectName: projectName.trim(),
         floorName: floorName.trim(),
         objectMappings,
+        outlinePoints: outlinePoints.length >= 3 ? outlinePoints : undefined,
       });
 
       navigate(`/editor/${result.floorplanId}`);
@@ -575,21 +582,221 @@ export default function ImportPage() {
             <button className="btn btn-secondary" onClick={() => setStep('review')}>
               Back
             </button>
-            <button className="btn btn-primary" onClick={() => setStep('confirm')}>
-              Next: Confirm Import
+            <button className="btn btn-primary" onClick={() => setStep('outline')}>
+              Next: Draw Outline
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Step 4: Confirm ───────────────────────────────────────────── */}
+      {/* ── Step 4: Outline ───────────────────────────────────────────── */}
+      {step === 'outline' && tempId && (
+        <div>
+          <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 8 }}>
+            Draw Floor Outline
+          </h2>
+          <p style={{ color: 'var(--color-text-secondary)', marginBottom: 16 }}>
+            Click around the building perimeter to trace the floor outline. Click the green starting dot to close the shape.
+            {outlinePoints.length > 0 && outlinePoints.length < 3 && (
+              <span style={{ color: '#d97706' }}> (Need at least 3 points)</span>
+            )}
+          </p>
+
+          {/* Outline canvas */}
+          <div
+            style={{
+              background: '#f1f5f9',
+              border: '1px solid var(--color-border)',
+              borderRadius: 8,
+              overflow: 'hidden',
+              marginBottom: 16,
+              position: 'relative',
+              cursor: 'crosshair',
+            }}
+          >
+            <svg
+              ref={outlineSvgRef}
+              viewBox={svgDims ? `0 0 ${svgDims.width} ${svgDims.height}` : '0 0 1000 700'}
+              style={{ width: '100%', display: 'block', maxHeight: 500 }}
+              preserveAspectRatio="xMidYMid meet"
+              onClick={(e) => {
+                if (!outlineSvgRef.current) return;
+                const pt = outlineSvgRef.current.createSVGPoint();
+                pt.x = e.clientX;
+                pt.y = e.clientY;
+                const ctm = outlineSvgRef.current.getScreenCTM();
+                if (!ctm) return;
+                const svgPt = pt.matrixTransform(ctm.inverse());
+                const x = Math.round(svgPt.x);
+                const y = Math.round(svgPt.y);
+
+                // If clicking near the first point and we have 3+ points, close
+                if (outlinePoints.length >= 3) {
+                  const first = outlinePoints[0];
+                  const dist = Math.sqrt((x - first.x) ** 2 + (y - first.y) ** 2);
+                  const viewBoxW = svgDims?.width || 1000;
+                  if (dist < viewBoxW * 0.02) {
+                    // Closed — don't add point, outline is done
+                    return;
+                  }
+                }
+
+                setOutlinePoints(prev => [...prev, { x, y }]);
+              }}
+            >
+              {/* SVG floorplan background */}
+              <image
+                href={`/api/import/svg/preview/${tempId}`}
+                width={svgDims?.width || 1000}
+                height={svgDims?.height || 700}
+                opacity={0.5}
+                onLoad={(e) => {
+                  // Try to get natural dimensions from the loaded SVG
+                  const img = e.currentTarget;
+                  if (!svgDims) {
+                    // Fetch SVG to get its viewBox dimensions
+                    fetch(`/api/import/svg/preview/${tempId}`)
+                      .then(r => r.text())
+                      .then(svgText => {
+                        const match = svgText.match(/viewBox=["']([^"']+)["']/);
+                        if (match) {
+                          const parts = match[1].split(/[\s,]+/).map(Number);
+                          if (parts.length >= 4) {
+                            setSvgDims({ width: parts[2], height: parts[3] });
+                            return;
+                          }
+                        }
+                        // Fallback: try width/height attributes
+                        const wMatch = svgText.match(/width=["']([^"']+)["']/);
+                        const hMatch = svgText.match(/height=["']([^"']+)["']/);
+                        if (wMatch && hMatch) {
+                          setSvgDims({ width: parseFloat(wMatch[1]), height: parseFloat(hMatch[1]) });
+                        }
+                      })
+                      .catch(() => {});
+                  }
+                }}
+              />
+
+              {/* Mapped objects highlighted */}
+              {includedMappings.map((m) => {
+                const obj = analysis?.objects.find(o => o.svgId === m.svgId);
+                if (!obj) return null;
+                const geom = (obj as Record<string, unknown>).geometry as { x?: number; y?: number; width?: number; height?: number } | undefined;
+                if (!geom || geom.x == null) return null;
+                return (
+                  <rect
+                    key={m.svgId}
+                    x={geom.x}
+                    y={geom.y}
+                    width={geom.width || 50}
+                    height={geom.height || 50}
+                    fill="rgba(59, 130, 246, 0.15)"
+                    stroke="#3b82f6"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 2"
+                    rx={3}
+                  />
+                );
+              })}
+
+              {/* Outline polygon */}
+              {outlinePoints.length >= 2 && (
+                <polyline
+                  points={outlinePoints.map(p => `${p.x},${p.y}`).join(' ')}
+                  fill="none"
+                  stroke="#16a34a"
+                  strokeWidth={3}
+                  strokeLinejoin="round"
+                />
+              )}
+              {/* Closed outline fill */}
+              {outlinePoints.length >= 3 && (
+                <polygon
+                  points={outlinePoints.map(p => `${p.x},${p.y}`).join(' ')}
+                  fill="rgba(22, 163, 74, 0.08)"
+                  stroke="#16a34a"
+                  strokeWidth={3}
+                  strokeLinejoin="round"
+                  strokeDasharray="8 4"
+                />
+              )}
+
+              {/* Points */}
+              {outlinePoints.map((p, i) => (
+                <circle
+                  key={i}
+                  cx={p.x}
+                  cy={p.y}
+                  r={i === 0 && outlinePoints.length >= 3 ? 8 : 5}
+                  fill={i === 0 ? '#16a34a' : '#fff'}
+                  stroke={i === 0 ? '#15803d' : '#16a34a'}
+                  strokeWidth={2}
+                  style={{ cursor: i === 0 && outlinePoints.length >= 3 ? 'pointer' : 'default' }}
+                  onClick={(e) => {
+                    if (i === 0 && outlinePoints.length >= 3) {
+                      e.stopPropagation();
+                      // Outline is closed — do nothing, it's already a polygon
+                    }
+                  }}
+                />
+              ))}
+            </svg>
+          </div>
+
+          {/* Controls */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setOutlinePoints(prev => prev.slice(0, -1))}
+              disabled={outlinePoints.length === 0}
+            >
+              Undo Last Point
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setOutlinePoints([])}
+              disabled={outlinePoints.length === 0}
+            >
+              Clear Outline
+            </button>
+            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center' }}>
+              {outlinePoints.length} point{outlinePoints.length !== 1 ? 's' : ''}
+              {outlinePoints.length >= 3 ? ' — outline ready' : ''}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <button className="btn btn-secondary" onClick={() => setStep('map')}>
+              Back
+            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setStep('confirm')}
+              >
+                Skip
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => setStep('confirm')}
+                disabled={outlinePoints.length < 3}
+              >
+                Next: Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 5: Confirm ───────────────────────────────────────────── */}
       {step === 'confirm' && (
         <div>
           <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 8 }}>
-            Confirm Import
+            Confirm &amp; Set Up Booking
           </h2>
           <p style={{ color: 'var(--color-text-secondary)', marginBottom: 24 }}>
-            Review the import summary and provide project details.
+            These spaces will be managed through PlaceOS — each one can be set as bookable, occupied, or restricted in real time.
           </p>
 
           {importError && (
@@ -598,50 +805,91 @@ export default function ImportPage() {
             </div>
           )}
 
-          {/* Summary */}
+          {/* What gets imported */}
           <div className="card" style={{ padding: 20, marginBottom: 20 }}>
             <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: 16 }}>
-              Import Summary
+              Spaces to Manage
             </h3>
             <div
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
                 gap: 12,
+                marginBottom: 16,
               }}
             >
-              {Object.entries(typeCounts).map(([type, count]) => (
-                <div
-                  key={type}
-                  style={{
-                    padding: '12px 16px',
-                    background: 'var(--color-bg)',
-                    borderRadius: 8,
-                    textAlign: 'center',
-                  }}
-                >
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary)' }}>
-                    {count}
+              {Object.entries(typeCounts).map(([type, count]) => {
+                const statusLabel: Record<string, string> = {
+                  room: 'Bookable rooms',
+                  desk: 'Bookable desks',
+                  locker: 'Assignable lockers',
+                  zone: 'Monitored zones',
+                  amenity: 'Amenity points',
+                  decorative: 'Decorative',
+                  area: 'Managed areas',
+                };
+                return (
+                  <div
+                    key={type}
+                    style={{
+                      padding: '14px 16px',
+                      background: 'var(--color-bg)',
+                      borderRadius: 8,
+                      textAlign: 'center',
+                    }}
+                  >
+                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary)' }}>
+                      {count}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>
+                      {statusLabel[type] || type}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)', textTransform: 'capitalize' }}>
-                    {type}{count !== 1 ? 's' : ''}
-                  </div>
+                );
+              })}
+            </div>
+
+            {/* Booking explanation */}
+            <div style={{ padding: '14px 16px', background: '#f0f7ff', borderRadius: 8, borderLeft: '4px solid #4a90d9', fontSize: '0.85rem', color: '#333' }}>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>How PlaceOS booking works</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 12, height: 12, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
+                  <span><strong>Available</strong> — space is free and can be booked</span>
                 </div>
-              ))}
-              <div
-                style={{
-                  padding: '12px 16px',
-                  background: 'var(--color-bg)',
-                  borderRadius: 8,
-                  textAlign: 'center',
-                }}
-              >
-                <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-                  {includedMappings.length}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 12, height: 12, borderRadius: '50%', background: '#3b82f6', flexShrink: 0 }} />
+                  <span><strong>Booked</strong> — reserved by a user for a time slot</span>
                 </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>
-                  Total Objects
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 12, height: 12, borderRadius: '50%', background: '#f59e0b', flexShrink: 0 }} />
+                  <span><strong>Occupied</strong> — currently in use (sensor-detected)</span>
                 </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 12, height: 12, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
+                  <span><strong>Restricted</strong> — not available for booking</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Next steps after import */}
+          <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: 12 }}>
+              After Import
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.85rem' }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#4a90d9', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0 }}>1</div>
+                <div><strong>Draw the floor outline</strong> — use the Draw Outline tool to trace the building boundary</div>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#4a90d9', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0 }}>2</div>
+                <div><strong>Verify room &amp; desk positions</strong> — imported spaces appear on the map, adjust as needed</div>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#4a90d9', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0 }}>3</div>
+                <div><strong>Connect to PlaceOS</strong> — each space gets a unique ID for real-time booking, occupancy tracking, and availability display</div>
               </div>
             </div>
           </div>
@@ -676,7 +924,7 @@ export default function ImportPage() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <button className="btn btn-secondary" onClick={() => setStep('map')}>
+            <button className="btn btn-secondary" onClick={() => setStep('outline')}>
               Back
             </button>
             <button
@@ -684,7 +932,7 @@ export default function ImportPage() {
               onClick={handleImport}
               disabled={importing || !projectName.trim() || !floorName.trim()}
             >
-              {importing ? 'Importing...' : `Import ${includedMappings.length} Objects`}
+              {importing ? 'Importing...' : `Import & Set Up ${includedMappings.length} Spaces`}
             </button>
           </div>
         </div>

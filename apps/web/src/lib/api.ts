@@ -296,6 +296,7 @@ export async function confirmSvgImport(data: {
   projectName: string;
   floorName: string;
   objectMappings: { svgId: string; objectType: string; label?: string }[];
+  outlinePoints?: { x: number; y: number }[];
 }): Promise<{ projectId: string; floorplanId: string; objectCount: number }> {
   const response = await fetch(`${API_BASE}/import/svg/confirm`, {
     method: 'POST',

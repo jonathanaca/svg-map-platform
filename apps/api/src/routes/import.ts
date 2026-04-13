@@ -66,10 +66,22 @@ router.post('/svg/analyze', upload.single('svg'), (req, res) => {
   }
 });
 
+// GET /api/import/svg/preview/:tempId - Serve the temp SVG for preview/outline drawing
+router.get('/svg/preview/:tempId', (req, res) => {
+  const { tempId } = req.params;
+  cleanupTempStore();
+  const entry = tempStore.get(tempId);
+  if (!entry) {
+    res.status(404).json({ error: 'Temporary SVG data not found or expired.' });
+    return;
+  }
+  res.type('image/svg+xml').send(entry.svgContent);
+});
+
 // POST /api/import/svg/confirm - Confirm import, create project + floorplan + objects
 router.post('/svg/confirm', (req, res) => {
   try {
-    const { tempId, projectName, floorName, objectMappings } = req.body as {
+    const { tempId, projectName, floorName, objectMappings, outlinePoints } = req.body as {
       tempId: string;
       projectName: string;
       floorName: string;
@@ -78,6 +90,7 @@ router.post('/svg/confirm', (req, res) => {
         objectType: string;
         label?: string;
       }>;
+      outlinePoints?: Array<{ x: number; y: number }>;
     };
 
     if (!tempId) {
@@ -110,12 +123,17 @@ router.post('/svg/confirm', (req, res) => {
     createFloorplan(floorplanId, projectId, floorName, 0);
 
     // Update floorplan with SVG content and dimensions
+    const canvasState: Record<string, unknown> = {};
+    if (outlinePoints && outlinePoints.length >= 3) {
+      canvasState.outlinePoints = outlinePoints;
+    }
     updateFloorplan(floorplanId, {
       svg_output: svgContent,
       canvas_width: analysis.width,
       canvas_height: analysis.height,
       source_type: 'svg-import',
       status: 'imported',
+      canvas_state: Object.keys(canvasState).length > 0 ? JSON.stringify(canvasState) : undefined,
     });
 
     // Build a mapping lookup from objectMappings
