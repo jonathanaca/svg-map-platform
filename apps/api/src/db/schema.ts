@@ -41,11 +41,18 @@ function initSchema(db: Database.Database): void {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       building_name TEXT,
+      metadata TEXT,
       status TEXT NOT NULL DEFAULT 'draft',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
+
+  // Migrate: add metadata column if missing
+  const projectCols = db.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>;
+  if (!projectCols.some(c => c.name === 'metadata')) {
+    db.exec('ALTER TABLE projects ADD COLUMN metadata TEXT');
+  }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS floorplans (
