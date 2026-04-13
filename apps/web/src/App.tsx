@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import type { BrandConfig, ImageMetadata } from '@svg-map/types';
+import type { BrandConfig, ImageMetadata, AvailabilityState } from '@svg-map/types';
 import ProjectsPage from './pages/ProjectsPage.js';
 import ProjectDetailPage from './pages/ProjectDetailPage.js';
 import EditorPage from './pages/EditorPage.js';
@@ -9,16 +9,18 @@ import UploadStep from './pages/UploadStep.js';
 import ConfigStep from './pages/ConfigStep.js';
 import RoomIdStep from './pages/RoomIdStep.js';
 import PreviewStep from './pages/PreviewStep.js';
+import StateStep from './pages/StateStep.js';
 import './styles.css';
 
 // ── Legacy Wizard (kept at /legacy) ─────────────────────────────────────────
 
-type Step = 'upload' | 'config' | 'rooms' | 'preview';
+type Step = 'upload' | 'config' | 'rooms' | 'states' | 'preview';
 
 const STEPS: { key: Step; label: string }[] = [
   { key: 'upload', label: 'Upload' },
   { key: 'config', label: 'Config' },
   { key: 'rooms', label: 'Rooms' },
+  { key: 'states', label: 'States' },
   { key: 'preview', label: 'Preview' },
 ];
 
@@ -27,6 +29,7 @@ function LegacyWizard() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [imageMetadata, setImageMetadata] = useState<ImageMetadata | null>(null);
   const [brandConfig, setBrandConfig] = useState<BrandConfig | null>(null);
+  const [stateAssignments, setStateAssignments] = useState<Record<string, AvailabilityState>>({});
 
   const currentIndex = STEPS.findIndex((s) => s.key === step);
 
@@ -69,13 +72,26 @@ function LegacyWizard() {
             brandConfig={brandConfig}
             onComplete={(rooms, icons) => {
               setBrandConfig((prev) => (prev ? { ...prev, roomIds: rooms, iconPlacements: icons } : prev));
-              setStep('preview');
+              setStep('states');
             }}
             onBack={() => setStep('config')}
           />
         )}
+        {step === 'states' && jobId && brandConfig && (
+          <StateStep
+            jobId={jobId}
+            brandConfig={brandConfig}
+            stateAssignments={stateAssignments}
+            onComplete={(assignments) => {
+              setStateAssignments(assignments);
+              setBrandConfig((prev) => (prev ? { ...prev, stateAssignments: assignments } : prev));
+              setStep('preview');
+            }}
+            onBack={() => setStep('rooms')}
+          />
+        )}
         {step === 'preview' && jobId && (
-          <PreviewStep jobId={jobId} onBack={() => setStep('rooms')} />
+          <PreviewStep jobId={jobId} onBack={() => setStep('states')} />
         )}
       </main>
     </>

@@ -42,6 +42,7 @@ export interface BrandConfig {
   iconPlacements?: IconPlacement[];
   tracing?: TracingData;
   embedFloorplanImage?: boolean;
+  stateAssignments?: Record<string, AvailabilityState>;
 }
 
 export type IconStyle = 'filled' | 'outline';

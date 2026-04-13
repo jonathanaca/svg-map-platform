@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { RoomEntry, BrandConfig, IconPlacement, AmenityIcon } from '@svg-map/types';
-import { saveConfig, generateSvg } from '../lib/api.js';
+// saveConfig + generateSvg moved to StateStep
 import FloorplanEditor from '../components/FloorplanEditor.js';
 
 const AMENITY_ICONS: { value: AmenityIcon; label: string }[] = [
@@ -38,7 +38,6 @@ export default function RoomIdStep({ jobId, brandConfig, onComplete, onBack }: R
   const [placingIcon, setPlacingIcon] = useState<AmenityIcon | null>(null);
   const [placeType, setPlaceType] = useState<'room' | 'desk' | 'desk-select'>('room');
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
   const imageUrl = `/api/files/processed/${jobId}.jpg`;
 
@@ -135,27 +134,9 @@ export default function RoomIdStep({ jobId, brandConfig, onComplete, onBack }: R
     });
   }
 
-  async function handleGenerate() {
+  function handleContinue() {
     if (hasValidationErrors()) return;
-
-    setError(null);
-    setSubmitting(true);
-
-    try {
-      const fullConfig: BrandConfig = {
-        ...brandConfig,
-        roomIds: rooms,
-        iconPlacements: icons,
-      };
-
-      await saveConfig(jobId, fullConfig);
-      await generateSvg(jobId);
-      onComplete(rooms, icons);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate SVG.');
-    } finally {
-      setSubmitting(false);
-    }
+    onComplete(rooms, icons);
   }
 
   const roomCount = rooms.filter(r => r.id !== 'floor').length;
@@ -373,10 +354,10 @@ export default function RoomIdStep({ jobId, brandConfig, onComplete, onBack }: R
         <button className="btn btn-secondary" onClick={onBack} type="button">Back</button>
         <button
           className="btn btn-primary"
-          onClick={handleGenerate}
-          disabled={hasValidationErrors() || submitting || !hasFloorOutline}
+          onClick={handleContinue}
+          disabled={hasValidationErrors() || !hasFloorOutline}
         >
-          {submitting ? 'Generating...' : 'Generate SVG'}
+          Continue
         </button>
       </div>
     </div>

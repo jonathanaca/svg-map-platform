@@ -196,4 +196,4 @@ export function getAvailabilityColor(state: AvailabilityState | undefined): stri
   return STATE_COLORS[state];
 }
 
-export { STATE_COLORS, DESK_STATES, ROOM_STATES };
+export { STATE_COLORS, DESK_STATES, ROOM_STATES, ALL_STATES, getStatesForType, cycleState };
