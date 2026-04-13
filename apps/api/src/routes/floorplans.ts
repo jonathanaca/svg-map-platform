@@ -153,19 +153,32 @@ router.post('/:id/upload-source', upload.single('source'), async (req, res) => {
 router.get('/:id/source-preview', (req, res) => {
   try {
     const floorplan = getFloorplan(req.params.id);
-    if (!floorplan || !floorplan.source_image_path) {
-      res.status(404).json({ error: 'No source image found' });
+    if (!floorplan) {
+      res.status(404).json({ error: 'Floorplan not found' });
       return;
     }
-    const filepath = floorplan.source_image_path as string;
-    if (!fs.existsSync(filepath)) {
-      res.status(404).json({ error: 'Source image file not found' });
+
+    // Try source image file first
+    if (floorplan.source_image_path) {
+      const filepath = floorplan.source_image_path as string;
+      if (fs.existsSync(filepath)) {
+        const sourceType = (floorplan.source_type as string) || 'image/png';
+        res.setHeader('Content-Type', sourceType);
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.sendFile(filepath);
+        return;
+      }
+    }
+
+    // Fall back to svg_output (for SVG imports)
+    if (floorplan.svg_output) {
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.send(floorplan.svg_output);
       return;
     }
-    const sourceType = (floorplan.source_type as string) || 'image/png';
-    res.setHeader('Content-Type', sourceType);
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.sendFile(filepath);
+
+    res.status(404).json({ error: 'No source image found' });
   } catch (err) {
     console.error('Source preview error:', err);
     res.status(500).json({ error: 'Failed to serve source image' });
