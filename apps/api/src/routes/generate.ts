@@ -36,7 +36,8 @@ router.post('/:jobId/generate', (req, res) => {
     updateJob(jobId, { status: 'generating' });
 
     // Build SVG
-    const layer_manager = new LayerManager(config, metadata);
+    const publishMode = req.query.publish === 'true' || req.body?.publishMode === true;
+    const layer_manager = new LayerManager(config, metadata, publishMode);
     const builder = new SvgBuilder(metadata.width, metadata.height);
 
     // Add a <title> for accessibility

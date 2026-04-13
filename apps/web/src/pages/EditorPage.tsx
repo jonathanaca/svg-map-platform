@@ -1876,21 +1876,15 @@ export default function EditorPage() {
               <button
                 onClick={() => {
                   if (!svgRef.current || !floorplan) return;
-                  // Clone the SVG and clean it up for export
                   const svgEl = svgRef.current;
                   const clone = svgEl.cloneNode(true) as SVGSVGElement;
-
-                  // Set proper dimensions
                   const w = canvasW;
                   const h = canvasH;
                   clone.setAttribute('viewBox', `0 0 ${w} ${h}`);
                   clone.setAttribute('width', String(w));
                   clone.setAttribute('height', String(h));
                   clone.removeAttribute('style');
-
-                  // Remove selection highlights, grid, resize handles, and other UI elements
                   clone.querySelectorAll('[data-ui-only]').forEach(el => el.remove());
-                  // Remove grid pattern defs
                   clone.querySelectorAll('defs').forEach(el => el.remove());
 
                   const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' +
@@ -1927,7 +1921,6 @@ export default function EditorPage() {
                   clone.querySelectorAll('defs').forEach(el => el.remove());
 
                   const svgString = new XMLSerializer().serializeToString(clone);
-                  // Convert to PNG via canvas
                   const img = new Image();
                   img.onload = () => {
                     const canvas = document.createElement('canvas');
@@ -1959,6 +1952,142 @@ export default function EditorPage() {
               <p style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', marginTop: 8 }}>
                 Objects: {objects.length} | Floor: {floorplan?.floor_name}
               </p>
+            </div>
+
+            {/* Publish to PlaceOS section */}
+            <div style={{ padding: 16, borderBottom: '1px solid var(--color-border)' }}>
+              <h3 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                Publish to PlaceOS
+              </h3>
+
+              {/* Validation checklist */}
+              {(() => {
+                const bookable = objects.filter(o => o.object_type === 'room' || o.object_type === 'desk');
+                const PLACEOS_ID_RE = /^[a-zA-Z][a-zA-Z0-9_.-]*$/;
+                const checks = [
+                  {
+                    label: 'All IDs start with a letter',
+                    pass: bookable.every(o => /^[a-zA-Z]/.test(o.svg_id || o.id)),
+                    detail: bookable.filter(o => !/^[a-zA-Z]/.test(o.svg_id || o.id)).map(o => o.svg_id || o.id).join(', '),
+                  },
+                  {
+                    label: 'No duplicate IDs',
+                    pass: new Set(bookable.map(o => o.svg_id || o.id)).size === bookable.length,
+                    detail: '',
+                  },
+                  {
+                    label: 'All bookable spaces have labels',
+                    pass: bookable.every(o => o.label && o.label.trim().length > 0),
+                    detail: bookable.filter(o => !o.label || o.label.trim().length === 0).map(o => o.svg_id || o.id).join(', '),
+                  },
+                  {
+                    label: 'Valid ID format (letters, digits, hyphens, dots)',
+                    pass: bookable.every(o => PLACEOS_ID_RE.test(o.svg_id || o.id)),
+                    detail: bookable.filter(o => !PLACEOS_ID_RE.test(o.svg_id || o.id)).map(o => o.svg_id || o.id).join(', '),
+                  },
+                  {
+                    label: `Bookable spaces found (${bookable.length})`,
+                    pass: bookable.length > 0,
+                    detail: '',
+                  },
+                ];
+                const allPass = checks.every(c => c.pass);
+
+                return (
+                  <div>
+                    <div style={{ marginBottom: 12 }}>
+                      {checks.map((check, i) => (
+                        <div key={i} style={{
+                          display: 'flex', alignItems: 'flex-start', gap: 8,
+                          padding: '4px 0', fontSize: '0.78rem',
+                          color: check.pass ? 'var(--color-success)' : '#dc2626',
+                        }}>
+                          <span style={{ flexShrink: 0, marginTop: 1 }}>{check.pass ? '\u2713' : '\u2717'}</span>
+                          <div>
+                            <span>{check.label}</span>
+                            {!check.pass && check.detail && (
+                              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                                {check.detail}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
+                      Exports with <strong>transparent fills</strong> on all bookable rooms/desks so PlaceOS can control state colors at runtime.
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        if (!svgRef.current || !floorplan) return;
+                        const svgEl = svgRef.current;
+                        const clone = svgEl.cloneNode(true) as SVGSVGElement;
+                        const w = canvasW;
+                        const h = canvasH;
+                        clone.setAttribute('viewBox', `0 0 ${w} ${h}`);
+                        clone.setAttribute('width', String(w));
+                        clone.setAttribute('height', String(h));
+                        clone.removeAttribute('style');
+                        clone.querySelectorAll('[data-ui-only]').forEach(el => el.remove());
+                        clone.querySelectorAll('defs').forEach(el => el.remove());
+
+                        // Make all bookable room/desk rects transparent for PlaceOS
+                        for (const obj of bookable) {
+                          const svgId = obj.svg_id || obj.id;
+                          const el = clone.querySelector(`[data-object-id="${obj.id}"] rect, rect[data-object-id="${obj.id}"]`);
+                          if (el) {
+                            el.setAttribute('fill', 'rgba(0, 0, 0, 0)');
+                            el.setAttribute('fill-opacity', '0');
+                            el.setAttribute('data-bookable', 'true');
+                            el.setAttribute('data-type', obj.object_type);
+                          }
+                          // Also try matching by ID attribute
+                          const byId = clone.getElementById(svgId);
+                          if (byId && byId.tagName === 'rect') {
+                            byId.setAttribute('fill', 'rgba(0, 0, 0, 0)');
+                            byId.setAttribute('fill-opacity', '0');
+                            byId.setAttribute('data-bookable', 'true');
+                            byId.setAttribute('data-type', obj.object_type);
+                          }
+                        }
+
+                        // Add PlaceOS metadata comment
+                        const comment = clone.ownerDocument.createComment(
+                          ` PlaceOS SVG Map | Bookable spaces: ${bookable.length} | Generated: ${new Date().toISOString()} `
+                        );
+                        clone.insertBefore(comment, clone.firstChild);
+
+                        const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+                          new XMLSerializer().serializeToString(clone);
+
+                        const blob = new Blob([svgString], { type: 'image/svg+xml' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${floorplan.floor_name?.replace(/\s+/g, '-') || 'floorplan'}-placeos.svg`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      disabled={!allPass}
+                      style={{
+                        width: '100%', padding: '10px 16px', border: 'none', borderRadius: 8,
+                        background: allPass ? '#059669' : '#9ca3af', color: 'white', fontWeight: 600,
+                        fontSize: '0.82rem', cursor: allPass ? 'pointer' : 'not-allowed', marginBottom: 8,
+                      }}
+                    >
+                      Publish SVG for PlaceOS
+                    </button>
+
+                    {!allPass && (
+                      <p style={{ fontSize: '0.7rem', color: '#dc2626' }}>
+                        Fix the issues above before publishing.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* State Legend */}
