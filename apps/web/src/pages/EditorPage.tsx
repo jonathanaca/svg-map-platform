@@ -18,7 +18,7 @@ import PropertiesPanel from '../components/PropertiesPanel.js';
 import LayerPanel, { DEFAULT_LAYERS } from '../components/LayerPanel.js';
 import ValidationPanel from '../components/ValidationPanel.js';
 import LabellingPanel from '../components/LabellingPanel.js';
-import AvailabilityPreview, { getAvailabilityColor } from '../components/AvailabilityPreview.js';
+import AvailabilityPreview, { getAvailabilityColor, STATE_COLORS, ALL_STATES, getStatesForType, cycleState } from '../components/AvailabilityPreview.js';
 
 type Tool = 'select' | 'rect' | 'polygon' | 'pen';
 type EditorMode = 'design' | 'label' | 'preview';
@@ -220,6 +220,7 @@ export default function EditorPage() {
   // Availability preview state
   const [availabilityEnabled, setAvailabilityEnabled] = useState(false);
   const [availabilityStates, setAvailabilityStates] = useState<Record<string, AvailabilityState>>({});
+  const [statePopup, setStatePopup] = useState<{ objectId: string; x: number; y: number } | null>(null);
 
   // Amenity placement state
   const [placingAmenity, setPlacingAmenity] = useState<string | null>(null);
@@ -1599,14 +1600,22 @@ export default function EditorPage() {
                 const fontSize = Math.max(8, Math.min(rw / 6, rh / 3, 24));
 
                 return (
-                  <g key={obj.id} opacity={obj.opacity}>
+                  <g key={obj.id} opacity={obj.opacity}
+                    onClick={(ev) => {
+                      if (editorMode === 'preview' && (obj.object_type === 'room' || obj.object_type === 'desk')) {
+                        ev.stopPropagation();
+                        setSelectedObjectId(obj.id);
+                        setStatePopup({ objectId: obj.id, x: ev.clientX, y: ev.clientY });
+                      }
+                    }}
+                  >
                     <rect
                       x={rx} y={ry} width={rw} height={rh}
                       fill={fillColor}
                       stroke={strokeColor}
                       strokeWidth={sw}
                       rx={4}
-                      style={{ cursor: 'move' }}
+                      style={{ cursor: editorMode === 'preview' ? 'pointer' : 'move' }}
                       transform={
                         geom.rotation
                           ? `rotate(${geom.rotation} ${rx + rw / 2} ${ry + rh / 2})`
@@ -1616,13 +1625,26 @@ export default function EditorPage() {
                     {/* Label text */}
                     {obj.label && (
                       <text
-                        x={rx + rw / 2} y={ry + rh / 2}
+                        x={rx + rw / 2} y={ry + rh / 2 - (availabilityEnabled && availabilityStates[obj.id] ? fontSize * 0.4 : 0)}
                         textAnchor="middle" dominantBaseline="central"
                         fill="#fff" fontSize={fontSize}
                         fontFamily="Arial, sans-serif" fontWeight="600"
                         style={{ pointerEvents: 'none', userSelect: 'none' }}
                       >
                         {obj.label}
+                      </text>
+                    )}
+                    {/* State badge in preview mode */}
+                    {availabilityEnabled && availabilityStates[obj.id] && (
+                      <text
+                        x={rx + rw / 2} y={ry + rh / 2 + fontSize * 0.55}
+                        textAnchor="middle" dominantBaseline="central"
+                        fill="#fff" fontSize={fontSize * 0.7}
+                        fontFamily="Arial, sans-serif" fontWeight="700"
+                        opacity={0.9}
+                        style={{ pointerEvents: 'none', userSelect: 'none', textTransform: 'uppercase' as const }}
+                      >
+                        {availabilityStates[obj.id].replace(/-/g, ' ').toUpperCase()}
                       </text>
                     )}
 
@@ -1793,6 +1815,51 @@ export default function EditorPage() {
           </div>
         )}
 
+        {/* State picker popup */}
+        {statePopup && (() => {
+          const popupObj = objects.find(o => o.id === statePopup.objectId);
+          if (!popupObj) return null;
+          const validStates = getStatesForType(popupObj.object_type);
+          return (
+            <>
+              <div
+                style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+                onClick={() => setStatePopup(null)}
+              />
+              <div
+                className="ss-state-popup"
+                style={{
+                  position: 'fixed',
+                  left: statePopup.x,
+                  top: statePopup.y,
+                  zIndex: 9999,
+                  transform: 'translate(-50%, 8px)',
+                }}
+              >
+                <div className="ss-popup-title">
+                  {popupObj.label || popupObj.svg_id || popupObj.id.slice(0, 8)}
+                </div>
+                {validStates.map((state) => {
+                  const isActive = availabilityStates[statePopup.objectId] === state;
+                  return (
+                    <button
+                      key={state}
+                      className={`ss-popup-option ${isActive ? 'ss-popup-option--active' : ''}`}
+                      onClick={() => {
+                        setAvailabilityStates(prev => ({ ...prev, [statePopup.objectId]: state }));
+                        setStatePopup(null);
+                      }}
+                    >
+                      <span className="ss-legend-swatch" style={{ backgroundColor: STATE_COLORS[state] }} />
+                      {state.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          );
+        })()}
+
         {/* Right sidebar: Availability Preview + Export (preview mode) */}
         {editorMode === 'preview' && (
           <div
@@ -1894,12 +1961,118 @@ export default function EditorPage() {
               </p>
             </div>
 
-            <AvailabilityPreview
-              objects={objects}
-              onStateChange={handleAvailabilityStateChange}
-              enabled={availabilityEnabled}
-              onToggle={setAvailabilityEnabled}
-            />
+            {/* State Legend */}
+            <div style={{ padding: 16, borderBottom: '1px solid var(--color-border)' }}>
+              <div className="ss-legend" style={{ margin: 0 }}>
+                <div className="ss-legend-title">State Legend</div>
+                <div className="ss-legend-grid">
+                  {ALL_STATES.map((state) => {
+                    const count = objects.filter((o) =>
+                      (o.object_type === 'room' || o.object_type === 'desk') &&
+                      availabilityStates[o.id] === state
+                    ).length;
+                    return (
+                      <div key={state} className="ss-legend-item">
+                        <span className="ss-legend-swatch" style={{ backgroundColor: STATE_COLORS[state] }} />
+                        <span className="ss-legend-label">{state.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
+                        {count > 0 && <span className="ss-legend-count">{count}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Bulk Actions */}
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)' }}>
+              <div className="ss-bulk-actions" style={{ marginBottom: 0 }}>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    const newStates: Record<string, AvailabilityState> = {};
+                    for (const obj of objects) {
+                      if (obj.object_type !== 'room' && obj.object_type !== 'desk') continue;
+                      const states = getStatesForType(obj.object_type);
+                      newStates[obj.id] = states[Math.floor(Math.random() * states.length)];
+                    }
+                    setAvailabilityStates(newStates);
+                  }}
+                >Randomize</button>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    const cleared: Record<string, AvailabilityState> = {};
+                    for (const obj of objects) {
+                      if (obj.object_type === 'room') cleared[obj.id] = 'free';
+                      else if (obj.object_type === 'desk') cleared[obj.id] = 'available';
+                    }
+                    setAvailabilityStates(cleared);
+                  }}
+                >Clear All</button>
+                <label className="ss-set-all">
+                  Set All:
+                  <select
+                    onChange={(e) => {
+                      if (!e.target.value) return;
+                      const state = e.target.value as AvailabilityState;
+                      const updated: Record<string, AvailabilityState> = {};
+                      for (const obj of objects) {
+                        if (obj.object_type !== 'room' && obj.object_type !== 'desk') continue;
+                        const valid = getStatesForType(obj.object_type);
+                        updated[obj.id] = valid.includes(state) ? state : valid[0];
+                      }
+                      setAvailabilityStates(updated);
+                      e.target.value = '';
+                    }}
+                    defaultValue=""
+                  >
+                    <option value="" disabled>Choose...</option>
+                    {ALL_STATES.map((s) => (
+                      <option key={s} value={s}>{s.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            {/* Bookable Objects List */}
+            <div className="ss-object-list" style={{ width: '100%', maxHeight: 'none', flex: 1, border: 'none', borderRadius: 0 }}>
+              <div className="ss-list-title">
+                Bookable Spaces ({objects.filter(o => o.object_type === 'room' || o.object_type === 'desk').length})
+              </div>
+              {objects.filter(o => o.object_type === 'room' || o.object_type === 'desk').map((obj) => {
+                const state = availabilityStates[obj.id];
+                const color = state ? STATE_COLORS[state] : '#ccc';
+                const validStates = getStatesForType(obj.object_type);
+                const isSelected = obj.id === selectedObjectId;
+                return (
+                  <div
+                    key={obj.id}
+                    className={`ss-object-row ${isSelected ? 'ss-object-row--selected' : ''}`}
+                    onClick={() => setSelectedObjectId(obj.id)}
+                  >
+                    <span className="ss-object-dot" style={{ backgroundColor: color }} />
+                    <div className="ss-object-info">
+                      <span className="ss-object-label">{obj.label || obj.svg_id || obj.id.slice(0, 8)}</span>
+                      <span className="ss-object-type">{obj.object_type}</span>
+                    </div>
+                    <select
+                      className="ss-state-select"
+                      value={state || ''}
+                      onChange={(e) => {
+                        handleAvailabilityStateChange(obj.id, e.target.value as AvailabilityState);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <option value="" disabled>--</option>
+                      {validStates.map((s) => (
+                        <option key={s} value={s}>{s.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
