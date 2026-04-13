@@ -126,18 +126,19 @@ router.post('/svg/confirm', (req, res) => {
       }
     }
 
-    // Create objects from parsed SVG elements merged with user mappings
+    // Create objects — only import objects the user explicitly included
     const objectRecords: Array<Record<string, unknown>> = [];
 
     for (const parsedObj of analysis.objects) {
       const userMapping = mappingBysvgId.get(parsedObj.svgId);
-      const objectType = userMapping?.objectType ?? parsedObj.suggestedType;
-      const label = userMapping?.label ?? parsedObj.label ?? parsedObj.svgId;
 
-      // Skip decorative elements unless the user explicitly mapped them
-      if (objectType === 'decorative' && !userMapping) {
+      // Only import objects that were included by the user (present in objectMappings)
+      if (!userMapping) {
         continue;
       }
+
+      const objectType = userMapping.objectType ?? parsedObj.suggestedType;
+      const label = userMapping.label ?? parsedObj.label ?? parsedObj.svgId;
 
       objectRecords.push({
         id: uuidv4(),
