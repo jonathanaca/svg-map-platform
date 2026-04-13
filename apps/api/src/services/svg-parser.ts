@@ -156,9 +156,12 @@ const LAYER_NAME_MAP: Record<string, string> = {
   neighbourhood: 'zones',
   base: 'background',
   blanks: 'background',
+  skeleton: 'walls',
   walls: 'walls',
   labels: 'labels',
+  signage: 'labels',
   amenities: 'amenities',
+  icons: 'amenities',
 };
 
 function mapLayerName(groupId: string): string {
@@ -266,11 +269,14 @@ export function analyzeSvg(svgContent: string): SvgAnalysis {
     const isLayer = inkscapeGroupmode === 'layer' || (gId && isDirectChild);
 
     if (isLayer) {
-      const label = inkscapeLabel || gId || 'unnamed';
+      const rawLabel = inkscapeLabel || gId || 'unnamed';
+      const mappedId = gId ? mapLayerName(gId) : `layer-${layers.length}`;
+      // Use a readable label: capitalize the mapped layer name
+      const displayLabel = mappedId.charAt(0).toUpperCase() + mappedId.slice(1);
       const childElements = g.querySelectorAll('rect, polygon, circle, path, ellipse, polyline, line, text, image');
       layers.push({
-        id: gId || `layer-${layers.length}`,
-        label,
+        id: mappedId,
+        label: `${displayLabel} (${rawLabel})`,
         elementCount: childElements.length,
       });
     }
