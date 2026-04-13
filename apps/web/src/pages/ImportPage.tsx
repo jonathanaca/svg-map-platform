@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { MapObjectType } from '@svg-map/types';
+import type { MapObjectType, RoomEntry } from '@svg-map/types';
 import { analyzeSvgImport, confirmSvgImport } from '../lib/api.js';
 import type { SvgAnalysis, SvgAnalysisObject } from '../lib/api.js';
+import FloorplanEditor from '../components/FloorplanEditor.js';
 
 type ImportStep = 'upload' | 'review' | 'map' | 'outline' | 'confirm';
 
@@ -42,10 +43,11 @@ export default function ImportPage() {
   // Map step: object mappings
   const [mappings, setMappings] = useState<ObjectMapping[]>([]);
 
-  // Outline step
-  const [outlinePoints, setOutlinePoints] = useState<{ x: number; y: number }[]>([]);
-  const [svgDims, setSvgDims] = useState<{ width: number; height: number } | null>(null);
-  const outlineSvgRef = useRef<SVGSVGElement>(null);
+  // Outline step — uses FloorplanEditor with a floor room for outline drawing
+  const [outlineRooms, setOutlineRooms] = useState<RoomEntry[]>([
+    { id: 'floor', label: 'Floor', x: 0, y: 0, width: 200, height: 150 },
+  ]);
+  const [outlineSelectedIndex, setOutlineSelectedIndex] = useState<number | null>(0);
 
   // Confirm step
   const [projectName, setProjectName] = useState('');
@@ -162,12 +164,23 @@ export default function ImportPage() {
           label: m.label || undefined,
         }));
 
+      // Extract outline points from the floor room (set by FloorplanEditor)
+      const floorRoom = outlineRooms.find(r => r.id === 'floor');
+      const extractedOutline = (() => {
+        if (!floorRoom) return undefined;
+        try {
+          const raw = (floorRoom as unknown as Record<string, unknown>)._outlinePoints;
+          if (Array.isArray(raw) && raw.length >= 3) return raw as { x: number; y: number }[];
+        } catch { /* ignore */ }
+        return undefined;
+      })();
+
       const result = await confirmSvgImport({
         tempId,
         projectName: projectName.trim(),
         floorName: floorName.trim(),
         objectMappings,
-        outlinePoints: outlinePoints.length >= 3 ? outlinePoints : undefined,
+        outlinePoints: extractedOutline,
       });
 
       navigate(`/editor/${result.floorplanId}`);
@@ -591,182 +604,24 @@ export default function ImportPage() {
 
       {/* ── Step 4: Outline ───────────────────────────────────────────── */}
       {step === 'outline' && tempId && (
-        <div>
-          <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 8 }}>
-            Draw Floor Outline
-          </h2>
+        <div className="card" style={{ maxWidth: 1400 }}>
+          <h2>Draw Floor Outline</h2>
           <p style={{ color: 'var(--color-text-secondary)', marginBottom: 16 }}>
-            Click around the building perimeter to trace the floor outline. Click the green starting dot to close the shape.
-            {outlinePoints.length > 0 && outlinePoints.length < 3 && (
-              <span style={{ color: '#d97706' }}> (Need at least 3 points)</span>
-            )}
+            Use the <strong>"Draw Floor Outline"</strong> button, then click around the building perimeter. Click the green dot to close the shape.
           </p>
 
-          {/* Outline canvas */}
-          <div
-            style={{
-              background: '#f1f5f9',
-              border: '1px solid var(--color-border)',
-              borderRadius: 8,
-              overflow: 'hidden',
-              marginBottom: 16,
-              position: 'relative',
-              cursor: 'crosshair',
+          <FloorplanEditor
+            imageUrl={`/api/import/svg/preview/${tempId}`}
+            rooms={outlineRooms}
+            selectedIndex={outlineSelectedIndex}
+            onSelectRoom={setOutlineSelectedIndex}
+            onUpdateRoom={(index, updates) => {
+              setOutlineRooms(prev => prev.map((r, i) => i === index ? { ...r, ...updates } : r));
             }}
-          >
-            <svg
-              ref={outlineSvgRef}
-              viewBox={svgDims ? `0 0 ${svgDims.width} ${svgDims.height}` : '0 0 1000 700'}
-              style={{ width: '100%', display: 'block', maxHeight: 500 }}
-              preserveAspectRatio="xMidYMid meet"
-              onClick={(e) => {
-                if (!outlineSvgRef.current) return;
-                const pt = outlineSvgRef.current.createSVGPoint();
-                pt.x = e.clientX;
-                pt.y = e.clientY;
-                const ctm = outlineSvgRef.current.getScreenCTM();
-                if (!ctm) return;
-                const svgPt = pt.matrixTransform(ctm.inverse());
-                const x = Math.round(svgPt.x);
-                const y = Math.round(svgPt.y);
+            onDeleteRoom={() => {}}
+          />
 
-                // If clicking near the first point and we have 3+ points, close
-                if (outlinePoints.length >= 3) {
-                  const first = outlinePoints[0];
-                  const dist = Math.sqrt((x - first.x) ** 2 + (y - first.y) ** 2);
-                  const viewBoxW = svgDims?.width || 1000;
-                  if (dist < viewBoxW * 0.02) {
-                    // Closed — don't add point, outline is done
-                    return;
-                  }
-                }
-
-                setOutlinePoints(prev => [...prev, { x, y }]);
-              }}
-            >
-              {/* SVG floorplan background */}
-              <image
-                href={`/api/import/svg/preview/${tempId}`}
-                width={svgDims?.width || 1000}
-                height={svgDims?.height || 700}
-                opacity={0.5}
-                onLoad={(e) => {
-                  // Try to get natural dimensions from the loaded SVG
-                  const img = e.currentTarget;
-                  if (!svgDims) {
-                    // Fetch SVG to get its viewBox dimensions
-                    fetch(`/api/import/svg/preview/${tempId}`)
-                      .then(r => r.text())
-                      .then(svgText => {
-                        const match = svgText.match(/viewBox=["']([^"']+)["']/);
-                        if (match) {
-                          const parts = match[1].split(/[\s,]+/).map(Number);
-                          if (parts.length >= 4) {
-                            setSvgDims({ width: parts[2], height: parts[3] });
-                            return;
-                          }
-                        }
-                        // Fallback: try width/height attributes
-                        const wMatch = svgText.match(/width=["']([^"']+)["']/);
-                        const hMatch = svgText.match(/height=["']([^"']+)["']/);
-                        if (wMatch && hMatch) {
-                          setSvgDims({ width: parseFloat(wMatch[1]), height: parseFloat(hMatch[1]) });
-                        }
-                      })
-                      .catch(() => {});
-                  }
-                }}
-              />
-
-              {/* Mapped objects highlighted */}
-              {includedMappings.map((m) => {
-                const obj = analysis?.objects.find(o => o.svgId === m.svgId);
-                if (!obj) return null;
-                const geom = (obj as Record<string, unknown>).geometry as { x?: number; y?: number; width?: number; height?: number } | undefined;
-                if (!geom || geom.x == null) return null;
-                return (
-                  <rect
-                    key={m.svgId}
-                    x={geom.x}
-                    y={geom.y}
-                    width={geom.width || 50}
-                    height={geom.height || 50}
-                    fill="rgba(59, 130, 246, 0.15)"
-                    stroke="#3b82f6"
-                    strokeWidth={1.5}
-                    strokeDasharray="4 2"
-                    rx={3}
-                  />
-                );
-              })}
-
-              {/* Outline polygon */}
-              {outlinePoints.length >= 2 && (
-                <polyline
-                  points={outlinePoints.map(p => `${p.x},${p.y}`).join(' ')}
-                  fill="none"
-                  stroke="#16a34a"
-                  strokeWidth={3}
-                  strokeLinejoin="round"
-                />
-              )}
-              {/* Closed outline fill */}
-              {outlinePoints.length >= 3 && (
-                <polygon
-                  points={outlinePoints.map(p => `${p.x},${p.y}`).join(' ')}
-                  fill="rgba(22, 163, 74, 0.08)"
-                  stroke="#16a34a"
-                  strokeWidth={3}
-                  strokeLinejoin="round"
-                  strokeDasharray="8 4"
-                />
-              )}
-
-              {/* Points */}
-              {outlinePoints.map((p, i) => (
-                <circle
-                  key={i}
-                  cx={p.x}
-                  cy={p.y}
-                  r={i === 0 && outlinePoints.length >= 3 ? 8 : 5}
-                  fill={i === 0 ? '#16a34a' : '#fff'}
-                  stroke={i === 0 ? '#15803d' : '#16a34a'}
-                  strokeWidth={2}
-                  style={{ cursor: i === 0 && outlinePoints.length >= 3 ? 'pointer' : 'default' }}
-                  onClick={(e) => {
-                    if (i === 0 && outlinePoints.length >= 3) {
-                      e.stopPropagation();
-                      // Outline is closed — do nothing, it's already a polygon
-                    }
-                  }}
-                />
-              ))}
-            </svg>
-          </div>
-
-          {/* Controls */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => setOutlinePoints(prev => prev.slice(0, -1))}
-              disabled={outlinePoints.length === 0}
-            >
-              Undo Last Point
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => setOutlinePoints([])}
-              disabled={outlinePoints.length === 0}
-            >
-              Clear Outline
-            </button>
-            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center' }}>
-              {outlinePoints.length} point{outlinePoints.length !== 1 ? 's' : ''}
-              {outlinePoints.length >= 3 ? ' — outline ready' : ''}
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
             <button className="btn btn-secondary" onClick={() => setStep('map')}>
               Back
             </button>
@@ -780,7 +635,6 @@ export default function ImportPage() {
               <button
                 className="btn btn-primary"
                 onClick={() => setStep('confirm')}
-                disabled={outlinePoints.length < 3}
               >
                 Next: Confirm
               </button>
