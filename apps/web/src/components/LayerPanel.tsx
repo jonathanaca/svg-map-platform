@@ -15,9 +15,10 @@ export const DEFAULT_LAYERS: EditorLayer[] = [
   { id: 'walls',      name: 'Walls',      visible: true, locked: false, opacity: 1, order: 1 },
   { id: 'rooms',      name: 'Rooms',      visible: true, locked: false, opacity: 1, order: 2 },
   { id: 'desks',      name: 'Desks',      visible: true, locked: false, opacity: 1, order: 3 },
-  { id: 'zones',      name: 'Zones',      visible: true, locked: false, opacity: 1, order: 4 },
-  { id: 'amenities',  name: 'Amenities',  visible: true, locked: false, opacity: 1, order: 5 },
-  { id: 'labels',     name: 'Labels',     visible: true, locked: false, opacity: 1, order: 6 },
+  { id: 'lockers',    name: 'Lockers',    visible: true, locked: false, opacity: 1, order: 4 },
+  { id: 'zones',      name: 'Zones',      visible: true, locked: false, opacity: 1, order: 5 },
+  { id: 'amenities',  name: 'Amenities',  visible: true, locked: false, opacity: 1, order: 6 },
+  { id: 'labels',     name: 'Labels',     visible: true, locked: false, opacity: 1, order: 7 },
 ];
 
 export default function LayerPanel({

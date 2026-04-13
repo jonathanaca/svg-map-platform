@@ -131,7 +131,7 @@ export default function ProjectDetailPage() {
           const steps = [
             { num: '1', title: 'Upload Floor Plan', desc: 'Click on a floor below, then use Upload Image to import your architectural drawing' },
             { num: '2', title: 'Draw Outline', desc: 'Use the Draw Outline tool to trace the floor boundary' },
-            { num: '3', title: 'Map Each Layer', desc: 'Select a layer (Rooms, Desks, Zones, etc.) and use Rect or Place tool to draw — objects are auto-labelled, click the name to rename' },
+            { num: '3', title: 'Map Each Layer', desc: 'Select a layer (Rooms, Desks, Lockers, Zones) and use Rect or Place tool to draw — objects are auto-labelled, click the name to rename' },
           ];
           return (
             <div className="card" style={{ marginBottom: 20, padding: 24, borderLeft: '4px solid #4a90d9', background: 'linear-gradient(135deg, #f0f7ff 0%, #fff 100%)' }}>

@@ -37,7 +37,7 @@ const TYPE_COLORS: Record<string, string> = {
   amenity: '#dc2626',
   decorative: '#6b7280',
   parking: '#d97706',
-  locker: '#4b5563',
+  locker: '#9333ea',
 };
 
 const AMENITY_ICONS: { id: string; label: string; emoji: string }[] = [
@@ -101,6 +101,7 @@ function layerToObjectType(layerId: string): MapObjectType {
   switch (layerId) {
     case 'rooms': return 'room';
     case 'desks': return 'desk';
+    case 'lockers': return 'locker';
     case 'zones': return 'zone';
     case 'areas': return 'area';
     case 'amenities': return 'amenity';
