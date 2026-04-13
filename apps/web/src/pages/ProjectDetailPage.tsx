@@ -128,20 +128,38 @@ export default function ProjectDetailPage() {
           const lockers = req.lockers ?? req.num_lockers ?? 0;
           const carspaces = req.carspaces ?? req.num_carspaces ?? 0;
           if (!rooms && !desks && !lockers && !carspaces) return null;
+          const steps = [
+            { num: '1', title: 'Upload Floor Plan', desc: 'Click on a floor below, then use Upload Image to import your architectural drawing' },
+            { num: '2', title: 'Draw Outline', desc: 'Use the Draw Outline tool to trace the floor boundary' },
+            { num: '3', title: 'Map Each Layer', desc: 'Select a layer (Rooms, Desks, Zones, etc.) and use Rect or Place tool to draw — objects are auto-labelled, click the name to rename' },
+          ];
           return (
-            <div className="card" style={{ marginBottom: 20, padding: 20, borderLeft: '4px solid #4a90d9', background: 'linear-gradient(135deg, #f0f7ff 0%, #fff 100%)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <span style={{ fontSize: '1rem', fontWeight: 700 }}>Quote Requirements</span>
+            <div className="card" style={{ marginBottom: 20, padding: 24, borderLeft: '4px solid #4a90d9', background: 'linear-gradient(135deg, #f0f7ff 0%, #fff 100%)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <span style={{ fontSize: '1.05rem', fontWeight: 700 }}>How to Map Your Floors</span>
                 <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: 8, background: '#e8f0fb', color: '#4a90d9', fontWeight: 600 }}>from WorkMate Quote</span>
               </div>
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem', marginBottom: 14 }}>
-                Upload a floor plan image for each level, then use the <strong>Place</strong> tool to mark rooms, desks, and spaces.
-              </p>
-              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                {rooms > 0 && <div style={{ padding: '8px 16px', background: '#f3f0ff', borderRadius: 8, fontSize: '0.85rem' }}><strong>{rooms}</strong> rooms</div>}
-                {desks > 0 && <div style={{ padding: '8px 16px', background: '#eff6ff', borderRadius: 8, fontSize: '0.85rem' }}><strong>{desks}</strong> desks</div>}
-                {lockers > 0 && <div style={{ padding: '8px 16px', background: '#fef2f2', borderRadius: 8, fontSize: '0.85rem' }}><strong>{lockers}</strong> lockers</div>}
-                {carspaces > 0 && <div style={{ padding: '8px 16px', background: '#ecfdf5', borderRadius: 8, fontSize: '0.85rem' }}><strong>{carspaces}</strong> car spaces</div>}
+
+              {/* Steps */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 18 }}>
+                {steps.map((s) => (
+                  <div key={s.num} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#4a90d9', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 700, flexShrink: 0 }}>{s.num}</div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>{s.title}</div>
+                      <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.82rem', marginTop: 2 }}>{s.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Requirements summary */}
+              <div style={{ padding: '12px 16px', background: '#f8f9fa', borderRadius: 8, fontSize: '0.82rem', color: 'var(--color-text-secondary)' }}>
+                <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>To place:</span>
+                {rooms > 0 && <span style={{ marginLeft: 12, padding: '3px 10px', background: '#f3f0ff', borderRadius: 6 }}><strong>{rooms}</strong> rooms</span>}
+                {desks > 0 && <span style={{ marginLeft: 8, padding: '3px 10px', background: '#eff6ff', borderRadius: 6 }}><strong>{desks}</strong> desks</span>}
+                {lockers > 0 && <span style={{ marginLeft: 8, padding: '3px 10px', background: '#fef2f2', borderRadius: 6 }}><strong>{lockers}</strong> lockers</span>}
+                {carspaces > 0 && <span style={{ marginLeft: 8, padding: '3px 10px', background: '#ecfdf5', borderRadius: 6 }}><strong>{carspaces}</strong> car spaces</span>}
               </div>
             </div>
           );
