@@ -48,6 +48,52 @@ export default function ImportPage() {
     { id: 'floor', label: 'Floor', x: 0, y: 0, width: 200, height: 150 },
   ]);
   const [outlineSelectedIndex, setOutlineSelectedIndex] = useState<number | null>(0);
+  const [outlineImageUrl, setOutlineImageUrl] = useState<string | null>(null);
+
+  // Convert SVG to a PNG data URL when entering outline step (FloorplanEditor needs raster image for dimensions)
+  React.useEffect(() => {
+    if (step !== 'outline' || !tempId || outlineImageUrl) return;
+    fetch(`/api/import/svg/preview/${tempId}`)
+      .then(r => r.text())
+      .then(svgText => {
+        // Extract viewBox or width/height for sizing
+        let w = 1200, h = 800;
+        const vbMatch = svgText.match(/viewBox=["']([^"']+)["']/);
+        if (vbMatch) {
+          const parts = vbMatch[1].split(/[\s,]+/).map(Number);
+          if (parts.length >= 4) { w = parts[2]; h = parts[3]; }
+        } else {
+          const wm = svgText.match(/width=["']([.\d]+)/);
+          const hm = svgText.match(/height=["']([.\d]+)/);
+          if (wm) w = parseFloat(wm[1]);
+          if (hm) h = parseFloat(hm[1]);
+        }
+
+        // Render SVG to canvas then to PNG data URL
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, w, h);
+          setOutlineImageUrl(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => {
+          // Fallback: use SVG URL directly with explicit dimensions
+          setOutlineImageUrl(`/api/import/svg/preview/${tempId}`);
+        };
+        // Ensure SVG has explicit width/height for Image loading
+        const withDims = svgText.replace(
+          /<svg([^>]*)>/,
+          `<svg$1 width="${w}" height="${h}">`
+        );
+        img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(withDims)));
+      })
+      .catch(() => {
+        setOutlineImageUrl(`/api/import/svg/preview/${tempId}`);
+      });
+  }, [step, tempId, outlineImageUrl]);
 
   // Confirm step
   const [projectName, setProjectName] = useState('');
@@ -610,16 +656,22 @@ export default function ImportPage() {
             Use the <strong>"Draw Floor Outline"</strong> button, then click around the building perimeter. Click the green dot to close the shape.
           </p>
 
-          <FloorplanEditor
-            imageUrl={`/api/import/svg/preview/${tempId}`}
-            rooms={outlineRooms}
-            selectedIndex={outlineSelectedIndex}
-            onSelectRoom={setOutlineSelectedIndex}
-            onUpdateRoom={(index, updates) => {
-              setOutlineRooms(prev => prev.map((r, i) => i === index ? { ...r, ...updates } : r));
-            }}
-            onDeleteRoom={() => {}}
-          />
+          {outlineImageUrl ? (
+            <FloorplanEditor
+              imageUrl={outlineImageUrl}
+              rooms={outlineRooms}
+              selectedIndex={outlineSelectedIndex}
+              onSelectRoom={setOutlineSelectedIndex}
+              onUpdateRoom={(index, updates) => {
+                setOutlineRooms(prev => prev.map((r, i) => i === index ? { ...r, ...updates } : r));
+              }}
+              onDeleteRoom={() => {}}
+            />
+          ) : (
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+              Loading floorplan preview...
+            </div>
+          )}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
             <button className="btn btn-secondary" onClick={() => setStep('map')}>
