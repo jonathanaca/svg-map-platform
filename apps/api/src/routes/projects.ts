@@ -12,11 +12,15 @@ import {
 
 const router = Router();
 
-// List all projects
+// List all projects (with floorplans so the UI can show floor counts)
 router.get('/', (_req, res) => {
   try {
     const projects = listProjects();
-    res.json(projects);
+    const withFloorplans = projects.map((p: Record<string, unknown>) => ({
+      ...p,
+      floorplans: listFloorplans(p.id as string),
+    }));
+    res.json(withFloorplans);
   } catch (err) {
     console.error('List projects error:', err);
     res.status(500).json({ error: 'Failed to list projects' });

@@ -315,9 +315,16 @@ export function getObject(id: string) {
 }
 
 export function listObjects(floorplanId: string) {
-  return getDb()
+  const rows = getDb()
     .prepare('SELECT * FROM floorplan_objects WHERE floorplan_id = ? ORDER BY z_index')
-    .all(floorplanId);
+    .all(floorplanId) as Array<Record<string, unknown>>;
+  return rows.map((row) => ({
+    ...row,
+    geometry: row.geometry ? JSON.parse(row.geometry as string) : null,
+    amenities: row.amenities ? JSON.parse(row.amenities as string) : null,
+    tags: row.tags ? JSON.parse(row.tags as string) : null,
+    metadata: row.metadata ? JSON.parse(row.metadata as string) : null,
+  }));
 }
 
 export function updateObject(id: string, fields: Record<string, unknown>): void {
