@@ -159,7 +159,7 @@ const LAYER_NAME_MAP: Record<string, string> = {
   skeleton: 'walls',
   walls: 'walls',
   labels: 'labels',
-  signage: 'labels',
+  signage: 'amenities',
   amenities: 'amenities',
   icons: 'amenities',
 };
