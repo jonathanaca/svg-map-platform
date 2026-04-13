@@ -8,19 +8,9 @@ COPY apps/web/package.json apps/web/
 COPY packages/types/package.json packages/types/
 RUN npm ci
 
-# Copy shared types first
-COPY packages/ packages/
+COPY . .
 
-# Copy API source
-COPY apps/api/ apps/api/
-
-# Copy web source (separate layer so changes trigger rebuild)
-COPY apps/web/ apps/web/
-
-# Copy root configs
-COPY nx.json tsconfig.base.json postcss.config.js ./
-
-# Build frontend — always rebuilds when web source changes
+# Build frontend
 RUN cd apps/web && npx vite build --outDir ../../dist/web --emptyOutDir
 
 # Create storage dirs
