@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import type { Floorplan, EditorState, MapObject, MapObjectType, EditorLayer, AvailabilityState } from '@svg-map/types';
 import {
   getFloorplan,
+  getProject,
   saveCanvasState,
   uploadSourceImage,
   listObjects,
@@ -40,18 +41,19 @@ const TYPE_COLORS: Record<string, string> = {
   locker: '#9333ea',
 };
 
-const AMENITY_ICONS: { id: string; label: string; emoji: string }[] = [
-  { id: 'male-restroom', label: 'Male Restroom', emoji: 'M' },
-  { id: 'female-restroom', label: 'Female Restroom', emoji: 'F' },
-  { id: 'accessible-restroom', label: 'Accessible', emoji: 'A' },
-  { id: 'staircase', label: 'Staircase', emoji: 'S' },
-  { id: 'elevator', label: 'Elevator', emoji: 'E' },
-  { id: 'fire-exit', label: 'Fire Exit', emoji: 'X' },
-  { id: 'cafe', label: 'Cafe', emoji: 'C' },
-  { id: 'reception', label: 'Reception', emoji: 'R' },
-  { id: 'aed', label: 'AED', emoji: '+' },
-  { id: 'lockers', label: 'Lockers', emoji: 'L' },
-  { id: 'presentation', label: 'Presentation', emoji: 'P' },
+const AMENITY_ICONS: { id: string; label: string; emoji: string; svg: string }[] = [
+  { id: 'male-restroom', label: 'Male Restroom', emoji: '🚹', svg: '<path d="M12 4a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm1 2h-2a2 2 0 0 0-2 2v5h2v7h2v-7h2V8a2 2 0 0 0-2-2z"/>' },
+  { id: 'female-restroom', label: 'Female Restroom', emoji: '🚺', svg: '<path d="M12 4a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm2 2h-4l-1 7h2v7h2v-7h2l-1-7z"/>' },
+  { id: 'accessible-restroom', label: 'Accessible', emoji: '♿', svg: '<circle cx="12" cy="4" r="2"/><path d="M14 20h-2l-2-6H8l-1-4h5l1 4h3l1 6z"/>' },
+  { id: 'staircase', label: 'Staircase', emoji: '🪜', svg: '<path d="M4 20h4v-4h4v-4h4v-4h4V4" stroke-width="2" fill="none" stroke="currentColor"/>' },
+  { id: 'elevator', label: 'Elevator', emoji: '🛗', svg: '<rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 8l3 4h-6l3-4zm0 8l-3-4h6l-3 4z"/>' },
+  { id: 'fire-exit', label: 'Fire Exit', emoji: '🚪', svg: '<path d="M10 3H4v18h6m4-9h6m-3-3l3 3-3 3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 6l-2 3 2 3" fill="none" stroke="#dc2626" stroke-width="2"/>' },
+  { id: 'cafe', label: 'Cafe', emoji: '☕', svg: '<path d="M5 12h10v4a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4v-4zm10 2h2a2 2 0 0 0 0-4h-2M7 8c0-2 1-3 3-4m2 0c2 1 3 2 3 4" fill="none" stroke="currentColor" stroke-width="1.5"/>' },
+  { id: 'reception', label: 'Reception', emoji: '🛎️', svg: '<path d="M5 18h14M6 14h12a6 6 0 0 0-12 0zm5-6V6m-3 2h6" fill="none" stroke="currentColor" stroke-width="1.5"/>' },
+  { id: 'aed', label: 'AED', emoji: '💚', svg: '<rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 9v6m-3-3h6" stroke="#16a34a" stroke-width="2.5"/>' },
+  { id: 'first-aid', label: 'First Aid', emoji: '🏥', svg: '<rect x="3" y="5" width="18" height="14" rx="2" fill="#dc2626" fill-opacity="0.15" stroke="#dc2626" stroke-width="1.5"/><path d="M12 9v6m-3-3h6" stroke="#dc2626" stroke-width="2.5"/>' },
+  { id: 'lockers', label: 'Lockers', emoji: '🔐', svg: '<rect x="3" y="4" width="7" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="4" width="7" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="6.5" cy="12" r="1"/><circle cx="17.5" cy="12" r="1"/>' },
+  { id: 'presentation', label: 'Presentation', emoji: '📽️', svg: '<rect x="2" y="4" width="20" height="13" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 17v3m-4 0h8" stroke="currentColor" stroke-width="1.5"/>' },
 ];
 
 const FURNITURE_ASSETS: { id: string; label: string; icon: string; w: number; h: number; color: string }[] = [
@@ -211,6 +213,10 @@ export default function EditorPage() {
   const [placeWidth, setPlaceWidth] = useState(80);
   const [placeHeight, setPlaceHeight] = useState(60);
 
+  // Quote requirements popup
+  const [quoteReqs, setQuoteReqs] = useState<{ rooms: number; desks: number; lockers: number; carspaces: number } | null>(null);
+  const [showReqsPopup, setShowReqsPopup] = useState(false);
+
   // Availability preview state
   const [availabilityEnabled, setAvailabilityEnabled] = useState(false);
   const [availabilityStates, setAvailabilityStates] = useState<Record<string, AvailabilityState>>({});
@@ -285,9 +291,22 @@ export default function EditorPage() {
     if (!floorplanId) return;
     setLoading(true);
     Promise.all([getFloorplan(floorplanId), listObjects(floorplanId)])
-      .then(([fp, objs]) => {
+      .then(async ([fp, objs]) => {
         setFloorplan(fp);
         setObjects(objs);
+        // Load quote requirements from project metadata
+        try {
+          const proj = await getProject(fp.project_id as string);
+          const meta = proj.metadata ? JSON.parse(proj.metadata as string) : null;
+          if (meta?.source === 'wmquote') {
+            const req = meta.requirements || meta;
+            const reqs = { rooms: req.rooms ?? req.num_rooms ?? 0, desks: req.desks ?? req.num_desks ?? 0, lockers: req.lockers ?? req.num_lockers ?? 0, carspaces: req.carspaces ?? req.num_carspaces ?? 0 };
+            if (reqs.rooms || reqs.desks || reqs.lockers || reqs.carspaces) {
+              setQuoteReqs(reqs);
+              setShowReqsPopup(true);
+            }
+          }
+        } catch { /* ignore if project fetch fails */ }
         if (fp.canvas_state) {
           setEditorState(fp.canvas_state);
           if (fp.canvas_state.viewport?.zoom) {
@@ -1048,6 +1067,44 @@ export default function EditorPage() {
         background: 'var(--color-surface)',
       }}
     >
+      {/* Quote requirements popup */}
+      {showReqsPopup && quoteReqs && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)' }}
+          onClick={() => setShowReqsPopup(false)}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 28, maxWidth: 440, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem' }}>What to Map</h3>
+              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: 8, background: '#e8f0fb', color: '#4a90d9', fontWeight: 600 }}>from Quote</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+              {[
+                { label: 'Upload floor plan image', desc: 'Use Upload Image button' },
+                { label: 'Draw the floor outline', desc: 'Use Draw Outline tool' },
+                { label: 'Select each layer and draw', desc: 'Use Rect or Place tool — auto-labelled, click name to rename' },
+              ].map((s, i) => (
+                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#4a90d9', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{s.label}</div>
+                    <div style={{ color: '#888', fontSize: '0.78rem' }}>{s.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: '12px 14px', background: '#f8f9fa', borderRadius: 10, marginBottom: 18 }}>
+              <div style={{ fontWeight: 600, fontSize: '0.82rem', marginBottom: 8 }}>To place on this floor:</div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {quoteReqs.rooms > 0 && <span style={{ padding: '4px 12px', background: '#f3f0ff', borderRadius: 6, fontSize: '0.82rem' }}><strong>{quoteReqs.rooms}</strong> rooms</span>}
+                {quoteReqs.desks > 0 && <span style={{ padding: '4px 12px', background: '#eff6ff', borderRadius: 6, fontSize: '0.82rem' }}><strong>{quoteReqs.desks}</strong> desks</span>}
+                {quoteReqs.lockers > 0 && <span style={{ padding: '4px 12px', background: '#faf5ff', borderRadius: 6, fontSize: '0.82rem' }}><strong>{quoteReqs.lockers}</strong> lockers</span>}
+                {quoteReqs.carspaces > 0 && <span style={{ padding: '4px 12px', background: '#ecfdf5', borderRadius: 6, fontSize: '0.82rem' }}><strong>{quoteReqs.carspaces}</strong> car spaces</span>}
+              </div>
+            </div>
+            <button onClick={() => setShowReqsPopup(false)} style={{ width: '100%', padding: '12px', background: '#171c2f', color: '#fff', border: 'none', borderRadius: 10, fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer' }}>Got it</button>
+          </div>
+        </div>
+      )}
       {/* Error toast */}
       {error && (
         <div style={{
@@ -1139,20 +1196,22 @@ export default function EditorPage() {
               <div className="dc-toolbar-group" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <label style={{ fontSize: 11, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>W</label>
                 <input
-                  type="number"
-                  value={placeWidth}
-                  onChange={(e) => setPlaceWidth(Math.max(10, Number(e.target.value) || 10))}
+                  type="text"
+                  defaultValue={placeWidth}
+                  key={'pw-' + placeWidth}
+                  onBlur={(e) => { const v = parseInt(e.target.value) || 80; setPlaceWidth(Math.max(10, v)); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur(); } }}
                   style={{ width: 48, padding: '3px 4px', fontSize: 12, borderRadius: 4, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', textAlign: 'center' }}
-                  min={10}
                   title="Place width (px)"
                 />
                 <label style={{ fontSize: 11, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>H</label>
                 <input
-                  type="number"
-                  value={placeHeight}
-                  onChange={(e) => setPlaceHeight(Math.max(10, Number(e.target.value) || 10))}
+                  type="text"
+                  defaultValue={placeHeight}
+                  key={'ph-' + placeHeight}
+                  onBlur={(e) => { const v = parseInt(e.target.value) || 60; setPlaceHeight(Math.max(10, v)); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur(); } }}
                   style={{ width: 48, padding: '3px 4px', fontSize: 12, borderRadius: 4, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', textAlign: 'center' }}
-                  min={10}
                   title="Place height (px)"
                 />
               </div>
@@ -1193,7 +1252,9 @@ export default function EditorPage() {
                         textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
                       }}
                     >
-                      <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#dc2626', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 700, flexShrink: 0 }}>{a.emoji}</span>
+                      <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#fde8e8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="#dc2626" stroke="#dc2626" strokeWidth="0" dangerouslySetInnerHTML={{ __html: a.svg }} />
+                      </span>
                       {a.label}
                     </button>
                   ))}
@@ -1332,6 +1393,18 @@ export default function EditorPage() {
             <span className="dc-tool-label">Upload Image</span>
           </button>
         </div>
+        )}
+
+        {quoteReqs && (
+          <button
+            className="dc-tool-btn"
+            onClick={() => setShowReqsPopup(true)}
+            title="View quote requirements"
+            style={{ background: '#e8f0fb', color: '#4a90d9', borderColor: '#4a90d9' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
+            <span className="dc-tool-label">Requirements</span>
+          </button>
         )}
 
         <span className="dc-toolbar-sep" />
@@ -1574,11 +1647,9 @@ export default function EditorPage() {
                     <circle cx={cx} cy={cy} r={cr}
                       fill={fillColor} stroke={strokeColor} strokeWidth={sw} opacity={obj.opacity} />
                     {amenityInfo && (
-                      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central"
-                        fontSize={cr * 1.1} fontWeight={700} fill="white"
-                        style={{ pointerEvents: 'none', userSelect: 'none' }}>
-                        {amenityInfo.emoji}
-                      </text>
+                      <g transform={`translate(${cx - cr * 0.6}, ${cy - cr * 0.6}) scale(${cr * 1.2 / 24})`}
+                        style={{ pointerEvents: 'none' }}
+                        dangerouslySetInnerHTML={{ __html: amenityInfo.svg.replace(/currentColor/g, 'white').replace(/fill="none"/g, 'fill="none"').replace(/fill="#[^"]+"/g, (m) => m.replace(/#[^"]+/, 'white')) }} />
                     )}
                     {obj.label && (
                       <text x={cx} y={cy + cr + 10} textAnchor="middle"
