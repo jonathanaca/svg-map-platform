@@ -123,18 +123,17 @@ router.post('/svg/confirm', (req, res) => {
     createFloorplan(floorplanId, projectId, floorName, 0);
 
     // Update floorplan with SVG content and dimensions
-    const canvasState: Record<string, unknown> = {};
-    if (outlinePoints && outlinePoints.length >= 3) {
-      canvasState.outlinePoints = outlinePoints;
-    }
-    updateFloorplan(floorplanId, {
+    const updateFields: Record<string, unknown> = {
       svg_output: svgContent,
       canvas_width: analysis.width,
       canvas_height: analysis.height,
       source_type: 'svg-import',
       status: 'imported',
-      canvas_state: Object.keys(canvasState).length > 0 ? JSON.stringify(canvasState) : undefined,
-    });
+    };
+    if (outlinePoints && Array.isArray(outlinePoints) && outlinePoints.length >= 3) {
+      updateFields.canvas_state = JSON.stringify({ outlinePoints });
+    }
+    updateFloorplan(floorplanId, updateFields);
 
     // Build a mapping lookup from objectMappings
     const mappingBysvgId = new Map<string, { objectType: string; label?: string }>();
