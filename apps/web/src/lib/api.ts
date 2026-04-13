@@ -1,6 +1,8 @@
 import type { BrandConfig, JobStatusResponse, UploadResponse, ErrorResponse, TracingData, Project, Floorplan, FloorplanVersion, MapObject, ValidationIssue } from '@svg-map/types';
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.PROD
+  ? 'https://svg-mapapi-production.up.railway.app/api'
+  : '/api';
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
