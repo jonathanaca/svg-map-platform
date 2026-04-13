@@ -6,19 +6,7 @@ export function applySecurityMiddleware(app: Express): void {
   // Helmet for security headers
   app.use(
     helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          scriptSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", 'data:', 'blob:', 'http://localhost:*', 'https://*'],
-          connectSrc: ["'self'", 'https://svg-mapapi-production.up.railway.app', 'https://svg-mapweb-production.up.railway.app'],
-          fontSrc: ["'self'"],
-          objectSrc: ["'none'"],
-          mediaSrc: ["'none'"],
-          frameSrc: ["'none'"],
-        },
-      },
+      contentSecurityPolicy: false,
     }),
   );
 }
