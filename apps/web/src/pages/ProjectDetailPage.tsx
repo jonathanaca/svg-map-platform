@@ -117,6 +117,37 @@ export default function ProjectDetailPage() {
         </div>
       </div>
 
+      {/* Quote requirements banner (from wmquote import) */}
+      {(() => {
+        try {
+          const meta = project.metadata ? JSON.parse(project.metadata as string) : null;
+          if (!meta?.source || meta.source !== 'wmquote') return null;
+          const req = meta.requirements || meta;
+          const rooms = req.rooms ?? req.num_rooms ?? 0;
+          const desks = req.desks ?? req.num_desks ?? 0;
+          const lockers = req.lockers ?? req.num_lockers ?? 0;
+          const carspaces = req.carspaces ?? req.num_carspaces ?? 0;
+          if (!rooms && !desks && !lockers && !carspaces) return null;
+          return (
+            <div className="card" style={{ marginBottom: 20, padding: 20, borderLeft: '4px solid #4a90d9', background: 'linear-gradient(135deg, #f0f7ff 0%, #fff 100%)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <span style={{ fontSize: '1rem', fontWeight: 700 }}>Quote Requirements</span>
+                <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: 8, background: '#e8f0fb', color: '#4a90d9', fontWeight: 600 }}>from WorkMate Quote</span>
+              </div>
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem', marginBottom: 14 }}>
+                Upload a floor plan image for each level, then use the <strong>Place</strong> tool to mark rooms, desks, and spaces.
+              </p>
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                {rooms > 0 && <div style={{ padding: '8px 16px', background: '#f3f0ff', borderRadius: 8, fontSize: '0.85rem' }}><strong>{rooms}</strong> rooms</div>}
+                {desks > 0 && <div style={{ padding: '8px 16px', background: '#eff6ff', borderRadius: 8, fontSize: '0.85rem' }}><strong>{desks}</strong> desks</div>}
+                {lockers > 0 && <div style={{ padding: '8px 16px', background: '#fef2f2', borderRadius: 8, fontSize: '0.85rem' }}><strong>{lockers}</strong> lockers</div>}
+                {carspaces > 0 && <div style={{ padding: '8px 16px', background: '#ecfdf5', borderRadius: 8, fontSize: '0.85rem' }}><strong>{carspaces}</strong> car spaces</div>}
+              </div>
+            </div>
+          );
+        } catch { return null; }
+      })()}
+
       {/* Floorplans header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <h3 style={{ fontSize: '1.1rem', fontWeight: 600 }}>
