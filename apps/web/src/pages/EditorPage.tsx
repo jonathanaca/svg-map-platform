@@ -2015,6 +2015,35 @@ export default function EditorPage() {
                       ))}
                     </div>
 
+                    {/* Auto-fix IDs button */}
+                    {!checks[3].pass && (
+                      <button
+                        onClick={async () => {
+                          for (const obj of bookable) {
+                            const currentId = obj.svg_id || obj.id;
+                            if (PLACEOS_ID_RE.test(currentId)) continue;
+                            // Fix: lowercase, replace spaces with hyphens, remove invalid chars
+                            const fixed = currentId
+                              .toLowerCase()
+                              .replace(/\s+/g, '-')
+                              .replace(/[^a-z0-9_.-]/g, '')
+                              .replace(/^[^a-z]+/, 'area-');
+                            if (fixed !== currentId && fixed.length > 0) {
+                              await handleObjectChange(obj.id, { svg_id: fixed });
+                            }
+                          }
+                        }}
+                        style={{
+                          width: '100%', padding: '8px 12px', border: '1px solid #d97706',
+                          borderRadius: 8, background: '#fffbeb', color: '#92400e',
+                          fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer',
+                          marginBottom: 10,
+                        }}
+                      >
+                        Auto-fix IDs (replace spaces with hyphens)
+                      </button>
+                    )}
+
                     <div style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
                       Exports with <strong>no fill</strong> overlays on bookable spaces. IDs formatted as <code style={{ fontSize: '0.68rem', background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>area-&#123;mapId&#125;-status</code> to match PlaceOS control system map IDs.
                     </div>
