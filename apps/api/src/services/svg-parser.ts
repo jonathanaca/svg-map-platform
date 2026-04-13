@@ -41,11 +41,16 @@ export interface SvgAnalysis {
 const INTERACTIVE_TAGS = new Set(['rect', 'polygon', 'circle', 'path', 'ellipse', 'polyline']);
 
 const TYPE_PATTERNS: Array<{ pattern: RegExp; type: string }> = [
-  { pattern: /^(room|meeting|conf)/i, type: 'room' },
+  { pattern: /^(room|meeting|conf|boardroom)/i, type: 'room' },
   { pattern: /^(desk|workstation|ws)/i, type: 'desk' },
-  { pattern: /^(zone|area|neighbourhood|neighborhood)/i, type: 'zone' },
+  { pattern: /^(locker)/i, type: 'locker' },
+  { pattern: /^(zone|neighbourhood|neighborhood)/i, type: 'zone' },
   { pattern: /^(amenity|toilet|kitchen|lift|elevator|bathroom|restroom|stairs|lobby)/i, type: 'amenity' },
 ];
+
+// Second pass: check if the full ID (after prefix like "area-04.") contains room-like keywords
+const ROOM_KEYWORDS = /office|training|board|exec|meeting|conf|parent|first.aid|interview|quiet|focus|breakout|huddle|collab|library|lounge|prayer|wellness|mother/i;
+const AMENITY_KEYWORDS = /kitchen|toilet|bathroom|restroom|shower|wc|water|services|comms|server|store|clean|utility|print|mail/i;
 
 function suggestObjectType(id: string): string {
   // Strip common prefixes/suffixes and check against patterns
@@ -55,6 +60,15 @@ function suggestObjectType(id: string): string {
       return type;
     }
   }
+
+  // For "area-" prefixed IDs, check the name portion for room/amenity keywords
+  if (/^area[-_.]/i.test(id)) {
+    const namePart = id.replace(/^area[-_.]\d+[-_.]/i, '');
+    if (ROOM_KEYWORDS.test(namePart)) return 'room';
+    if (AMENITY_KEYWORDS.test(namePart)) return 'amenity';
+    return 'zone'; // default for area-* is zone (neighbourhood zones, etc.)
+  }
+
   return 'decorative';
 }
 
@@ -131,11 +145,33 @@ function extractAttributes(el: Element): Record<string, string> {
   return attrs;
 }
 
+// Map SVG group names to our editor layer IDs
+const LAYER_NAME_MAP: Record<string, string> = {
+  bookings: 'rooms',
+  rooms: 'rooms',
+  desks: 'desks',
+  furniture: 'background',
+  lockers: 'lockers',
+  highlights: 'zones',
+  neighbourhood: 'zones',
+  base: 'background',
+  blanks: 'background',
+  walls: 'walls',
+  labels: 'labels',
+  amenities: 'amenities',
+};
+
+function mapLayerName(groupId: string): string {
+  const lower = groupId.toLowerCase();
+  return LAYER_NAME_MAP[lower] ?? 'rooms';
+}
+
 function findParentLayer(el: Element): string | null {
   let current = el.parentElement;
   while (current) {
     if (current.tagName.toLowerCase() === 'g' && current.getAttribute('id')) {
-      return current.getAttribute('id');
+      const groupId = current.getAttribute('id')!;
+      return mapLayerName(groupId);
     }
     current = current.parentElement;
   }
