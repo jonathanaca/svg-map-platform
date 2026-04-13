@@ -172,6 +172,30 @@ router.post('/svg/confirm', (req, res) => {
       });
     }
 
+    // Add floor outline as a polygon object if outline was drawn
+    if (outlinePoints && Array.isArray(outlinePoints) && outlinePoints.length >= 3) {
+      const xs = outlinePoints.map((p: { x: number }) => p.x);
+      const ys = outlinePoints.map((p: { y: number }) => p.y);
+      objectRecords.push({
+        id: uuidv4(),
+        object_type: 'area',
+        svg_id: 'floor-outline',
+        label: 'Floor Outline',
+        geometry: JSON.stringify({
+          type: 'polygon',
+          points: outlinePoints,
+          x: Math.min(...xs),
+          y: Math.min(...ys),
+          width: Math.max(...xs) - Math.min(...xs),
+          height: Math.max(...ys) - Math.min(...ys),
+        }),
+        layer: 'background',
+        fill_color: 'rgba(107,114,128,0.15)',
+        stroke_color: '#6b7280',
+        z_index: 0,
+      });
+    }
+
     if (objectRecords.length > 0) {
       bulkUpsertObjects(floorplanId, objectRecords);
     }
