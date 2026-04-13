@@ -1600,7 +1600,7 @@ export default function EditorPage() {
                 const fontSize = Math.max(8, Math.min(rw / 6, rh / 3, 24));
 
                 return (
-                  <g key={obj.id} opacity={obj.opacity}
+                  <g key={obj.id} data-object-id={obj.id} opacity={obj.opacity}
                     onClick={(ev) => {
                       if (editorMode === 'preview' && (obj.object_type === 'room' || obj.object_type === 'desk')) {
                         ev.stopPropagation();
@@ -2050,50 +2050,100 @@ export default function EditorPage() {
 
                     <button
                       onClick={() => {
-                        if (!svgRef.current || !floorplan) return;
-                        const svgEl = svgRef.current;
-                        const clone = svgEl.cloneNode(true) as SVGSVGElement;
+                        if (!floorplan) return;
                         const w = canvasW;
                         const h = canvasH;
-                        clone.setAttribute('viewBox', `0 0 ${w} ${h}`);
-                        clone.setAttribute('width', String(w));
-                        clone.setAttribute('height', String(h));
-                        clone.removeAttribute('style');
-                        clone.querySelectorAll('[data-ui-only]').forEach(el => el.remove());
-                        clone.querySelectorAll('defs').forEach(el => el.remove());
 
-                        // Make all bookable room/desk overlays PlaceOS-compatible
-                        // ID format: area-{mapId}-status (no fill, just the overlay shape)
-                        for (const obj of bookable) {
-                          const svgId = obj.svg_id || obj.id;
-                          const mapId = svgId;
-                          const placeosId = `area-${mapId}-status`;
+                        // Build SVG from scratch with proper PlaceOS structure
+                        const nonBookable = objects.filter(o => o.object_type !== 'room' && o.object_type !== 'desk');
+                        const escXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-                          // Find the element by data-object-id or by ID
-                          const el = clone.querySelector(`[data-object-id="${obj.id}"] rect, rect[data-object-id="${obj.id}"]`)
-                            || clone.getElementById(svgId);
-
-                          if (el) {
-                            el.setAttribute('id', placeosId);
-                            el.removeAttribute('fill');
-                            el.removeAttribute('fill-opacity');
-                            el.setAttribute('class', 'bookable');
-                            el.setAttribute('stroke', 'none');
-                            el.setAttribute('data-type', obj.object_type);
-                            el.setAttribute('data-map-id', mapId);
+                        // Helper to render geometry as SVG element string
+                        const renderShape = (obj: typeof objects[0], attrs: string) => {
+                          const geom = obj.geometry;
+                          if (geom.type === 'rect') {
+                            return `<rect x="${geom.x ?? 0}" y="${geom.y ?? 0}" width="${geom.width ?? 50}" height="${geom.height ?? 50}" rx="3" ${attrs}${geom.rotation ? ` transform="rotate(${geom.rotation} ${(geom.x ?? 0) + (geom.width ?? 50) / 2} ${(geom.y ?? 0) + (geom.height ?? 50) / 2})"` : ''}/>`;
+                          } else if (geom.type === 'polygon' && geom.points) {
+                            return `<polygon points="${geom.points.map((p: {x:number;y:number}) => `${p.x},${p.y}`).join(' ')}" ${attrs}/>`;
+                          } else if (geom.type === 'circle') {
+                            return `<circle cx="${geom.x ?? 0}" cy="${geom.y ?? 0}" r="${geom.r ?? 12}" ${attrs}/>`;
+                          } else if (geom.type === 'path' && geom.d) {
+                            return `<path d="${escXml(geom.d)}" ${attrs}/>`;
                           }
+                          return '';
+                        };
+
+                        let svg = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+                        svg += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">\n`;
+                        svg += `<!-- PlaceOS SVG Map | Bookable spaces: ${bookable.length} | Generated: ${new Date().toISOString()} -->\n`;
+
+                        // Internal CSS
+                        svg += `<style>\n`;
+                        svg += `  .bookable { pointer-events: all; }\n`;
+                        svg += `  .roomLabel { font-family: Arial, sans-serif; font-weight: 600; fill: #333; text-anchor: middle; dominant-baseline: central; }\n`;
+                        svg += `  .deskLabel { font-family: Arial, sans-serif; font-weight: 400; fill: #333; text-anchor: middle; dominant-baseline: central; }\n`;
+                        svg += `</style>\n`;
+
+                        // Layer: outline (area/zone objects)
+                        const outlines = nonBookable.filter(o => o.object_type === 'area' || o.object_type === 'zone');
+                        if (outlines.length > 0) {
+                          svg += `<g id="outline">\n`;
+                          for (const obj of outlines) {
+                            const fill = obj.fill_color || 'none';
+                            const stroke = obj.stroke_color || '#6b7280';
+                            svg += `  ${renderShape(obj, `fill="${fill}" stroke="${stroke}" stroke-width="2"`)}\n`;
+                          }
+                          svg += `</g>\n`;
                         }
 
-                        // Add PlaceOS metadata comment
-                        const comment = clone.ownerDocument.createComment(
-                          ` PlaceOS SVG Map | Bookable spaces: ${bookable.length} | Generated: ${new Date().toISOString()} `
-                        );
-                        clone.insertBefore(comment, clone.firstChild);
+                        // Layer: space-highlights (decorative, parking, locker)
+                        const highlights = nonBookable.filter(o => ['decorative', 'parking', 'locker'].includes(o.object_type));
+                        if (highlights.length > 0) {
+                          svg += `<g id="space-highlights">\n`;
+                          for (const obj of highlights) {
+                            const fill = obj.fill_color || '#6b728055';
+                            const stroke = obj.stroke_color || '#6b7280';
+                            svg += `  ${renderShape(obj, `fill="${fill}" stroke="${stroke}" stroke-width="1"`)}\n`;
+                          }
+                          svg += `</g>\n`;
+                        }
 
-                        const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' +
-                          new XMLSerializer().serializeToString(clone);
+                        // Layer: room-bookings (bookable overlays — NO FILL)
+                        svg += `<g id="room-bookings">\n`;
+                        for (const obj of bookable) {
+                          const mapId = obj.svg_id || obj.id;
+                          const placeosId = `area-${mapId}-status`;
+                          svg += `  ${renderShape(obj, `id="${escXml(placeosId)}" class="bookable" data-map-id="${escXml(mapId)}" data-type="${obj.object_type}"`)}\n`;
+                        }
+                        svg += `</g>\n`;
 
-                        const blob = new Blob([svgString], { type: 'image/svg+xml' });
+                        // Layer: text (labels for all bookable objects)
+                        svg += `<g id="text">\n`;
+                        for (const obj of bookable) {
+                          if (!obj.label) continue;
+                          const geom = obj.geometry;
+                          const cx = (geom.x ?? 0) + (geom.width ?? 50) / 2;
+                          const cy = (geom.y ?? 0) + (geom.height ?? 50) / 2;
+                          const fontSize = Math.max(8, Math.min((geom.width ?? 50) / 6, (geom.height ?? 50) / 3, 24));
+                          const cls = obj.object_type === 'desk' ? 'deskLabel' : 'roomLabel';
+                          svg += `  <text x="${cx}" y="${cy}" class="${cls}" font-size="${fontSize}">${escXml(obj.label)}</text>\n`;
+                        }
+                        svg += `</g>\n`;
+
+                        // Layer: icons (amenity objects)
+                        const amenities = nonBookable.filter(o => o.object_type === 'amenity');
+                        if (amenities.length > 0) {
+                          svg += `<g id="icons">\n`;
+                          for (const obj of amenities) {
+                            const fill = obj.fill_color || '#dc2626';
+                            svg += `  ${renderShape(obj, `fill="${fill}" stroke="none"`)}\n`;
+                          }
+                          svg += `</g>\n`;
+                        }
+
+                        svg += `</svg>\n`;
+
+                        const blob = new Blob([svg], { type: 'image/svg+xml' });
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
