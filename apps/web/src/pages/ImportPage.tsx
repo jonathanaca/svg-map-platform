@@ -482,6 +482,31 @@ export default function ImportPage() {
             </span>
           </div>
 
+          {/* Include/Exclude All */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setMappings((prev) => prev.map((m) => ({ ...m, excluded: false })))}
+              style={{ fontSize: '0.78rem', padding: '4px 12px' }}
+            >
+              Include All
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setMappings((prev) => prev.map((m) => ({ ...m, excluded: true })))}
+              style={{ fontSize: '0.78rem', padding: '4px 12px' }}
+            >
+              Exclude All
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setMappings((prev) => prev.map((m) => ({ ...m, excluded: m.objectType === 'decorative' })))}
+              style={{ fontSize: '0.78rem', padding: '4px 12px' }}
+            >
+              Exclude Decorative Only
+            </button>
+          </div>
+
           {/* Object mapping table */}
           <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 20 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
