@@ -206,6 +206,10 @@ export default function EditorPage() {
   const [layers, setLayers] = useState<EditorLayer[]>(DEFAULT_LAYERS);
   const [activeLayerId, setActiveLayerId] = useState<string>('rooms');
 
+  // Place tool size state
+  const [placeWidth, setPlaceWidth] = useState(80);
+  const [placeHeight, setPlaceHeight] = useState(60);
+
   // Availability preview state
   const [availabilityEnabled, setAvailabilityEnabled] = useState(false);
   const [availabilityStates, setAvailabilityStates] = useState<Record<string, AvailabilityState>>({});
@@ -745,7 +749,7 @@ export default function EditorPage() {
         object_type: objectType,
         label,
         svg_id: svgId,
-        geometry: { type: 'rect', x: x - (objectType === 'desk' ? 15 : 40), y: y - (objectType === 'desk' ? 15 : 30), width: objectType === 'desk' ? 30 : 80, height: objectType === 'desk' ? 30 : 60 },
+        geometry: { type: 'rect', x: x - placeWidth / 2, y: y - placeHeight / 2, width: placeWidth, height: placeHeight },
         layer: activeLayerId,
         fill_color: color + '55',
         stroke_color: color,
@@ -761,7 +765,7 @@ export default function EditorPage() {
       e.preventDefault();
       return;
     }
-  }, [activeTool, drawingOutline, outlinePoints, selectedObjectId, objects, layers, floorplanId, editorMode, activeLayerId, imageDims]);
+  }, [activeTool, drawingOutline, outlinePoints, selectedObjectId, objects, layers, floorplanId, editorMode, activeLayerId, imageDims, placeWidth, placeHeight]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     const { x, y } = toSvgCoords(e.clientX, e.clientY);
@@ -1096,6 +1100,7 @@ export default function EditorPage() {
               }}
               onClick={() => {
                 setEditorMode(mode);
+                setSelectedObjectId(null);
                 if (mode === 'preview') setAvailabilityEnabled(true);
                 else setAvailabilityEnabled(false);
               }}
@@ -1128,6 +1133,29 @@ export default function EditorPage() {
                 </button>
               ))}
             </div>
+            {/* Place tool size controls */}
+            {activeTool === 'pen' && !placingAmenity && !drawingOutline && (
+              <div className="dc-toolbar-group" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={{ fontSize: 11, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>W</label>
+                <input
+                  type="number"
+                  value={placeWidth}
+                  onChange={(e) => setPlaceWidth(Math.max(10, Number(e.target.value) || 10))}
+                  style={{ width: 48, padding: '3px 4px', fontSize: 12, borderRadius: 4, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', textAlign: 'center' }}
+                  min={10}
+                  title="Place width (px)"
+                />
+                <label style={{ fontSize: 11, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>H</label>
+                <input
+                  type="number"
+                  value={placeHeight}
+                  onChange={(e) => setPlaceHeight(Math.max(10, Number(e.target.value) || 10))}
+                  style={{ width: 48, padding: '3px 4px', fontSize: 12, borderRadius: 4, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', textAlign: 'center' }}
+                  min={10}
+                  title="Place height (px)"
+                />
+              </div>
+            )}
             <button
               className={`dc-tool-btn ${drawingOutline ? 'dc-tool-btn--active' : ''}`}
               onClick={startOutlineDrawing}
