@@ -269,34 +269,47 @@ export class LayerManager {
       // Regular room or desk
       const is_desk = room.id.startsWith('desk-');
 
-      // In publish mode, bookable spaces get transparent fills so PlaceOS controls the color
-      const fill = this.publishMode
-        ? 'rgba(0, 0, 0, 0)'
-        : hexToRgba(is_desk ? '#2563eb' : '#4A4A4A', room.opacity ?? (is_desk ? 0.3 : 0.45));
-
-      const attrs: Record<string, string> = {
-        id: room.id,
-        x: String(rx), y: String(ry),
-        width: String(rw), height: String(rh),
-        fill,
-        stroke: is_desk ? '#93c5fd' : '#FFFFFF',
-        'stroke-width': is_desk ? '1' : '1.5',
-        rx: is_desk ? '2' : '3',
-        'data-label': room.label,
-        'aria-label': room.label,
-        'data-type': is_desk ? 'desk' : 'room',
-      };
-
       if (this.publishMode) {
-        attrs['fill-opacity'] = '0';
-        attrs['data-bookable'] = 'true';
+        // PlaceOS mode: overlay with no fill, ID format area-{mapId}-status
+        const mapId = room.id;
+        const placeosId = `area-${mapId}-status`;
+        elements.push({
+          tag: 'rect',
+          attributes: {
+            id: placeosId,
+            class: 'bookable',
+            x: String(rx), y: String(ry),
+            width: String(rw), height: String(rh),
+            stroke: 'none',
+            'stroke-width': '0',
+            rx: is_desk ? '2' : '3',
+            'data-label': room.label,
+            'aria-label': room.label,
+            'data-type': is_desk ? 'desk' : 'room',
+            'data-map-id': mapId,
+          },
+          children: [],
+        });
+      } else {
+        const opacity = room.opacity ?? (is_desk ? 0.3 : 0.45);
+        const fill_color = is_desk ? '#2563eb' : '#4A4A4A';
+        elements.push({
+          tag: 'rect',
+          attributes: {
+            id: room.id,
+            x: String(rx), y: String(ry),
+            width: String(rw), height: String(rh),
+            fill: hexToRgba(fill_color, opacity),
+            stroke: is_desk ? '#93c5fd' : '#FFFFFF',
+            'stroke-width': is_desk ? '1' : '1.5',
+            rx: is_desk ? '2' : '3',
+            'data-label': room.label,
+            'aria-label': room.label,
+            'data-type': is_desk ? 'desk' : 'room',
+          },
+          children: [],
+        });
       }
-
-      elements.push({
-        tag: 'rect',
-        attributes: attrs,
-        children: [],
-      });
     }
 
     return elements;

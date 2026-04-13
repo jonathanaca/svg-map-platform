@@ -2016,7 +2016,7 @@ export default function EditorPage() {
                     </div>
 
                     <div style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
-                      Exports with <strong>transparent fills</strong> on all bookable rooms/desks so PlaceOS can control state colors at runtime.
+                      Exports with <strong>no fill</strong> overlays on bookable spaces. IDs formatted as <code style={{ fontSize: '0.68rem', background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>area-&#123;mapId&#125;-status</code> to match PlaceOS control system map IDs.
                     </div>
 
                     <button
@@ -2033,23 +2033,25 @@ export default function EditorPage() {
                         clone.querySelectorAll('[data-ui-only]').forEach(el => el.remove());
                         clone.querySelectorAll('defs').forEach(el => el.remove());
 
-                        // Make all bookable room/desk rects transparent for PlaceOS
+                        // Make all bookable room/desk overlays PlaceOS-compatible
+                        // ID format: area-{mapId}-status (no fill, just the overlay shape)
                         for (const obj of bookable) {
                           const svgId = obj.svg_id || obj.id;
-                          const el = clone.querySelector(`[data-object-id="${obj.id}"] rect, rect[data-object-id="${obj.id}"]`);
+                          const mapId = svgId;
+                          const placeosId = `area-${mapId}-status`;
+
+                          // Find the element by data-object-id or by ID
+                          const el = clone.querySelector(`[data-object-id="${obj.id}"] rect, rect[data-object-id="${obj.id}"]`)
+                            || clone.getElementById(svgId);
+
                           if (el) {
-                            el.setAttribute('fill', 'rgba(0, 0, 0, 0)');
-                            el.setAttribute('fill-opacity', '0');
-                            el.setAttribute('data-bookable', 'true');
+                            el.setAttribute('id', placeosId);
+                            el.removeAttribute('fill');
+                            el.removeAttribute('fill-opacity');
+                            el.setAttribute('class', 'bookable');
+                            el.setAttribute('stroke', 'none');
                             el.setAttribute('data-type', obj.object_type);
-                          }
-                          // Also try matching by ID attribute
-                          const byId = clone.getElementById(svgId);
-                          if (byId && byId.tagName === 'rect') {
-                            byId.setAttribute('fill', 'rgba(0, 0, 0, 0)');
-                            byId.setAttribute('fill-opacity', '0');
-                            byId.setAttribute('data-bookable', 'true');
-                            byId.setAttribute('data-type', obj.object_type);
+                            el.setAttribute('data-map-id', mapId);
                           }
                         }
 
