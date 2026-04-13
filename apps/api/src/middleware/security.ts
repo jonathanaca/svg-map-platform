@@ -12,7 +12,7 @@ export function applySecurityMiddleware(app: Express): void {
           scriptSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", 'data:', 'blob:', 'http://localhost:*', 'https://*'],
-          connectSrc: ["'self'"],
+          connectSrc: ["'self'", 'https://svg-mapapi-production.up.railway.app', 'https://svg-mapweb-production.up.railway.app'],
           fontSrc: ["'self'"],
           objectSrc: ["'none'"],
           mediaSrc: ["'none'"],
