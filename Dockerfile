@@ -10,8 +10,9 @@ RUN npm ci
 
 COPY . .
 
-# Build frontend
-RUN cd apps/web && npx vite build --outDir ../../dist/web
+# Build frontend (bust cache on every deploy)
+ARG CACHE_BUST=1
+RUN cd apps/web && npx vite build --outDir ../../dist/web --emptyOutDir
 
 # Create storage dirs
 RUN mkdir -p storage/uploads storage/processed storage/output data
