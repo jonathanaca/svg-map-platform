@@ -56,33 +56,33 @@ const AMENITY_ICONS: { id: string; label: string; emoji: string; svg: string }[]
   { id: 'presentation', label: 'Presentation', emoji: '📽️', svg: '<rect x="2" y="4" width="20" height="13" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 17v3m-4 0h8" stroke="currentColor" stroke-width="1.5"/>' },
 ];
 
-const FURNITURE_ASSETS: { id: string; label: string; icon: string; w: number; h: number; color: string }[] = [
+const FURNITURE_ASSETS: { id: string; label: string; icon: string; svg: string; w: number; h: number; color: string }[] = [
   // Furniture
-  { id: 'desk-single', label: 'Single Desk', icon: 'D', w: 30, h: 20, color: '#2563eb' },
-  { id: 'desk-pair', label: 'Desk Pair', icon: 'DD', w: 50, h: 20, color: '#2563eb' },
-  { id: 'desk-pod', label: 'Desk Pod (4)', icon: '4D', w: 50, h: 40, color: '#2563eb' },
-  { id: 'table-small', label: 'Small Table', icon: 'T', w: 30, h: 30, color: '#92400e' },
-  { id: 'table-medium', label: 'Medium Table', icon: 'T', w: 50, h: 30, color: '#92400e' },
-  { id: 'table-large', label: 'Large Table', icon: 'T', w: 80, h: 40, color: '#92400e' },
-  { id: 'table-round', label: 'Round Table', icon: 'O', w: 30, h: 30, color: '#92400e' },
-  { id: 'standing-desk', label: 'Standing Desk', icon: 'SD', w: 30, h: 15, color: '#4f46e5' },
+  { id: 'desk-single', label: 'Single Desk', icon: 'D', svg: '<rect x="3" y="8" width="18" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 18v3M17 18v3M7 8V5h10v3" fill="none" stroke="currentColor" stroke-width="1.5"/>', w: 30, h: 20, color: '#2563eb' },
+  { id: 'desk-pair', label: 'Desk Pair', icon: 'DD', svg: '<rect x="2" y="6" width="9" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="13" y="6" width="9" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 13v3M8 13v3M16 13v3M19 13v3" fill="none" stroke="currentColor" stroke-width="1.5"/>', w: 50, h: 20, color: '#2563eb' },
+  { id: 'desk-pod', label: 'Desk Pod (4)', icon: '4D', svg: '<rect x="3" y="3" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="13" y="3" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="3" y="13" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="13" y="13" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>', w: 50, h: 40, color: '#2563eb' },
+  { id: 'table-small', label: 'Small Table', icon: 'T', svg: '<rect x="5" y="5" width="14" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="2" fill="currentColor" opacity="0.3"/>', w: 30, h: 30, color: '#92400e' },
+  { id: 'table-medium', label: 'Medium Table', icon: 'T', svg: '<rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 10h8M8 14h8" stroke="currentColor" stroke-width="1" opacity="0.3"/>', w: 50, h: 30, color: '#92400e' },
+  { id: 'table-large', label: 'Large Table', icon: 'T', svg: '<rect x="2" y="5" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 9h10M7 12h10M7 15h10" stroke="currentColor" stroke-width="1" opacity="0.3"/>', w: 80, h: 40, color: '#92400e' },
+  { id: 'table-round', label: 'Round Table', icon: 'O', svg: '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" fill="currentColor" opacity="0.2"/>', w: 30, h: 30, color: '#92400e' },
+  { id: 'standing-desk', label: 'Standing Desk', icon: 'SD', svg: '<rect x="4" y="4" width="16" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 12v8M16 12v8M6 20h4M14 20h4" fill="none" stroke="currentColor" stroke-width="1.5"/>', w: 30, h: 15, color: '#4f46e5' },
   // Seating
-  { id: 'bench', label: 'Bench', icon: 'B', w: 50, h: 12, color: '#059669' },
-  { id: 'lounge-chair', label: 'Lounge Chair', icon: 'LC', w: 25, h: 25, color: '#059669' },
-  { id: 'sofa', label: 'Sofa', icon: 'So', w: 55, h: 22, color: '#059669' },
-  { id: 'phone-booth', label: 'Phone Booth', icon: 'PB', w: 25, h: 25, color: '#7c3aed' },
+  { id: 'bench', label: 'Bench', icon: 'B', svg: '<rect x="2" y="10" width="20" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 14v4M19 14v4" fill="none" stroke="currentColor" stroke-width="1.5"/>', w: 50, h: 12, color: '#059669' },
+  { id: 'lounge-chair', label: 'Lounge Chair', icon: 'LC', svg: '<path d="M6 8a6 6 0 0 1 12 0v6H6V8z" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="4" y="14" width="16" height="4" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 12v4M20 12v4" stroke="currentColor" stroke-width="1.5"/>', w: 25, h: 25, color: '#059669' },
+  { id: 'sofa', label: 'Sofa', icon: 'So', svg: '<rect x="2" y="8" width="20" height="8" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 8V6a2 2 0 0 1 4 0v2M15 8V6a2 2 0 0 1 4 0v2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M2 12h2M20 12h2" stroke="currentColor" stroke-width="1.5"/>', w: 55, h: 22, color: '#059669' },
+  { id: 'phone-booth', label: 'Phone Booth', icon: 'PB', svg: '<rect x="5" y="2" width="14" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 6h6M9 2v2M15 2v2" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="12" cy="14" r="2" fill="none" stroke="currentColor" stroke-width="1.3"/>', w: 25, h: 25, color: '#7c3aed' },
   // Storage & utilities
-  { id: 'lockers', label: 'Lockers', icon: 'Lk', w: 40, h: 15, color: '#4b5563' },
-  { id: 'filing-cabinet', label: 'Filing Cabinet', icon: 'FC', w: 15, h: 20, color: '#4b5563' },
-  { id: 'bookshelf', label: 'Bookshelf', icon: 'BS', w: 40, h: 12, color: '#92400e' },
-  { id: 'printer', label: 'Printer', icon: 'Pr', w: 20, h: 20, color: '#374151' },
+  { id: 'lockers', label: 'Lockers', icon: 'Lk', svg: '<rect x="2" y="4" width="6" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="4" width="6" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="16" y="4" width="6" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="5" cy="12" r="0.8" fill="currentColor"/><circle cx="12" cy="12" r="0.8" fill="currentColor"/><circle cx="19" cy="12" r="0.8" fill="currentColor"/>', w: 40, h: 15, color: '#4b5563' },
+  { id: 'filing-cabinet', label: 'Filing Cabinet', icon: 'FC', svg: '<rect x="5" y="2" width="14" height="20" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 8h14M5 14h14" stroke="currentColor" stroke-width="1.3"/><circle cx="12" cy="5" r="0.8" fill="currentColor"/><circle cx="12" cy="11" r="0.8" fill="currentColor"/><circle cx="12" cy="17" r="0.8" fill="currentColor"/>', w: 15, h: 20, color: '#4b5563' },
+  { id: 'bookshelf', label: 'Bookshelf', icon: 'BS', svg: '<rect x="3" y="3" width="18" height="18" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 9h18M3 15h18" stroke="currentColor" stroke-width="1.3"/><path d="M7 3v6M11 3v6M16 9v6M9 9v6M7 15v6M13 15v6" stroke="currentColor" stroke-width="1" opacity="0.5"/>', w: 40, h: 12, color: '#92400e' },
+  { id: 'printer', label: 'Printer', icon: 'Pr', svg: '<rect x="4" y="10" width="16" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="6" y="4" width="12" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 18v3h8v-3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 14h8" stroke="currentColor" stroke-width="1" opacity="0.4"/>', w: 20, h: 20, color: '#374151' },
   // Decorative
-  { id: 'plant', label: 'Plant', icon: 'Pl', w: 12, h: 12, color: '#16a34a' },
-  { id: 'plant-large', label: 'Large Plant', icon: 'PL', w: 18, h: 18, color: '#16a34a' },
-  { id: 'partition', label: 'Partition Wall', icon: '||', w: 60, h: 4, color: '#6b7280' },
-  { id: 'whiteboard', label: 'Whiteboard', icon: 'WB', w: 40, h: 5, color: '#e5e7eb' },
-  { id: 'tv-screen', label: 'TV/Screen', icon: 'TV', w: 35, h: 5, color: '#1f2937' },
-  { id: 'bin', label: 'Waste Bin', icon: 'Bn', w: 8, h: 8, color: '#6b7280' },
+  { id: 'plant', label: 'Plant', icon: 'Pl', svg: '<path d="M12 20v-8" stroke="currentColor" stroke-width="1.5"/><path d="M8 12c0-4 4-8 4-8s4 4 4 8" fill="none" stroke="#16a34a" stroke-width="1.5"/><path d="M6 14c0-3 3-6 6-6M18 14c0-3-3-6-6-6" fill="none" stroke="#16a34a" stroke-width="1.3" opacity="0.6"/><ellipse cx="12" cy="20" rx="3" ry="2" fill="none" stroke="currentColor" stroke-width="1.3"/>', w: 12, h: 12, color: '#16a34a' },
+  { id: 'plant-large', label: 'Large Plant', icon: 'PL', svg: '<path d="M12 22v-10" stroke="currentColor" stroke-width="1.5"/><path d="M6 12c0-5 6-10 6-10s6 5 6 10" fill="none" stroke="#16a34a" stroke-width="1.5"/><path d="M4 14c0-4 4-8 8-8M20 14c0-4-4-8-8-8" fill="none" stroke="#16a34a" stroke-width="1.3" opacity="0.5"/><path d="M9 22h6" stroke="currentColor" stroke-width="1.5"/>', w: 18, h: 18, color: '#16a34a' },
+  { id: 'partition', label: 'Partition Wall', icon: '||', svg: '<rect x="2" y="6" width="20" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M2 12h20" stroke="currentColor" stroke-width="1" opacity="0.3"/>', w: 60, h: 4, color: '#6b7280' },
+  { id: 'whiteboard', label: 'Whiteboard', icon: 'WB', svg: '<rect x="2" y="4" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 8h12M6 11h8" stroke="currentColor" stroke-width="1" opacity="0.4"/><path d="M12 18v3M8 21h8" stroke="currentColor" stroke-width="1.3"/>', w: 40, h: 5, color: '#e5e7eb' },
+  { id: 'tv-screen', label: 'TV/Screen', icon: 'TV', svg: '<rect x="2" y="4" width="20" height="13" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 17v2M16 17v2M6 19h12" stroke="currentColor" stroke-width="1.3"/><path d="M7 8l4 3-4 3" fill="currentColor" opacity="0.3"/>', w: 35, h: 5, color: '#1f2937' },
+  { id: 'bin', label: 'Waste Bin', icon: 'Bn', svg: '<path d="M6 6h12l-1 14H7L6 6z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 6h16" stroke="currentColor" stroke-width="1.5"/><path d="M9 3h6v3H9z" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M10 9v8M14 9v8" stroke="currentColor" stroke-width="1" opacity="0.4"/>', w: 8, h: 8, color: '#6b7280' },
 ];
 
 function getHandlePos(h: Handle, x: number, y: number, w: number, h2: number): [number, number] {
@@ -1299,7 +1299,9 @@ export default function EditorPage() {
                         textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
                       }}
                     >
-                      <span style={{ width: 18, height: 14, borderRadius: 2, background: a.color + '66', border: `1px solid ${a.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', fontWeight: 700, color: a.color, flexShrink: 0 }}>{a.icon}</span>
+                      <span style={{ width: 22, height: 22, borderRadius: 4, background: a.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="0" dangerouslySetInnerHTML={{ __html: a.svg }} />
+                      </span>
                       {a.label}
                     </button>
                   ))}
@@ -1315,7 +1317,9 @@ export default function EditorPage() {
                         textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
                       }}
                     >
-                      <span style={{ width: 18, height: 14, borderRadius: 2, background: a.color + '66', border: `1px solid ${a.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', fontWeight: 700, color: a.color, flexShrink: 0 }}>{a.icon}</span>
+                      <span style={{ width: 22, height: 22, borderRadius: 4, background: a.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="0" dangerouslySetInnerHTML={{ __html: a.svg }} />
+                      </span>
                       {a.label}
                     </button>
                   ))}
@@ -1331,7 +1335,9 @@ export default function EditorPage() {
                         textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
                       }}
                     >
-                      <span style={{ width: 18, height: 14, borderRadius: 2, background: a.color + '66', border: `1px solid ${a.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', fontWeight: 700, color: a.color, flexShrink: 0 }}>{a.icon}</span>
+                      <span style={{ width: 22, height: 22, borderRadius: 4, background: a.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="0" dangerouslySetInnerHTML={{ __html: a.svg }} />
+                      </span>
                       {a.label}
                     </button>
                   ))}
