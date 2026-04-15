@@ -67,6 +67,8 @@ const AMENITY_ICONS: { id: string; label: string; emoji: string; svg: string }[]
   { id: 'first-aid', label: 'First Aid', emoji: '🏥', svg: '<rect x="3" y="5" width="18" height="14" rx="2" fill="#dc2626" fill-opacity="0.15" stroke="#dc2626" stroke-width="1.5"/><path d="M12 9v6m-3-3h6" stroke="#dc2626" stroke-width="2.5"/>' },
   { id: 'lockers', label: 'Lockers', emoji: '🔐', svg: '<rect x="3" y="4" width="7" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="4" width="7" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="6.5" cy="12" r="1"/><circle cx="17.5" cy="12" r="1"/>' },
   { id: 'presentation', label: 'Presentation', emoji: '📽️', svg: '<rect x="2" y="4" width="20" height="13" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 17v3m-4 0h8" stroke="currentColor" stroke-width="1.5"/>' },
+  { id: 'door', label: 'Door', emoji: '🚪', svg: '<rect x="7" y="2" width="10" height="20" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="15" cy="13" r="1" fill="currentColor"/>' },
+  { id: 'window', label: 'Window', emoji: '🪟', svg: '<rect x="3" y="6" width="18" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 6v12M3 12h18" stroke="currentColor" stroke-width="1"/><path d="M3 6h18" stroke="#60a5fa" stroke-width="2"/>' },
 ];
 
 const FURNITURE_ASSETS: { id: string; label: string; icon: string; svg: string; w: number; h: number; color: string }[] = [
@@ -272,6 +274,10 @@ export default function EditorPage() {
 
   // Bottom panel tab state (for label mode)
   const [bottomTab, setBottomTab] = useState<'labelling' | 'validation'>('labelling');
+
+  // Editor search
+  const [editorSearchQuery, setEditorSearchQuery] = useState('');
+  const [editorSearchOpen, setEditorSearchOpen] = useState(false);
 
   // PlaceOS integration state
   const [placeosConnected, setPlaceosConnected] = useState(false);
@@ -1070,6 +1076,22 @@ export default function EditorPage() {
         e.preventDefault();
         handleObjectDelete(selectedObjectId);
       }
+      // Tool shortcuts (single key, no modifier)
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        switch (e.key.toLowerCase()) {
+          case 'v': setActiveTool('select'); setPlacingAmenity(null); setPlacingFurniture(null); setPlacingDeskLayout(null); break;
+          case 'r': setActiveTool('rect'); break;
+          case 'p': setActiveTool('pen'); break;
+          case 'g': setEditorState(prev => ({ ...prev, gridEnabled: !prev.gridEnabled })); break;
+          // Ctrl+F handled below for search
+        }
+      }
+      // Ctrl+F = Search (focus search input if it exists)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        const searchInput = document.querySelector('.editor-search-input') as HTMLInputElement;
+        if (searchInput) searchInput.focus();
+      }
       // Ctrl+Z = Undo, Ctrl+Shift+Z or Ctrl+Y = Redo
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
@@ -1646,8 +1668,62 @@ export default function EditorPage() {
           <button className="dc-tool-btn" onClick={() => { setZoom(1); if (containerRef.current) { containerRef.current.scrollLeft = 0; containerRef.current.scrollTop = 0; } }} title="Reset zoom to 100%">Fit</button>
         </div>
 
-        {/* Spacer + floor name */}
+        {/* Spacer + search + floor name */}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ position: 'relative' }}>
+            <input
+              type="text"
+              className="editor-search-input"
+              placeholder="Search (Ctrl+F)"
+              value={editorSearchQuery}
+              onChange={e => setEditorSearchQuery(e.target.value)}
+              onFocus={() => setEditorSearchOpen(true)}
+              onBlur={() => setTimeout(() => setEditorSearchOpen(false), 200)}
+              style={{
+                width: 160, padding: '4px 8px', fontSize: '0.75rem',
+                border: '1px solid var(--color-border)', borderRadius: 4,
+                background: 'var(--color-surface)', color: 'var(--color-text)',
+              }}
+            />
+            {editorSearchOpen && editorSearchQuery && (
+              <div style={{
+                position: 'absolute', top: '100%', right: 0, zIndex: 200,
+                background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+                borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                minWidth: 220, maxHeight: 200, overflowY: 'auto',
+              }}>
+                {objects
+                  .filter(o => (o.object_type === 'room' || o.object_type === 'desk') && o.label?.toLowerCase().includes(editorSearchQuery.toLowerCase()))
+                  .slice(0, 8)
+                  .map(o => (
+                    <div
+                      key={o.id}
+                      style={{
+                        padding: '6px 10px', borderBottom: '1px solid var(--color-border)',
+                        cursor: 'pointer', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 6,
+                      }}
+                      onMouseDown={() => {
+                        setSelectedObjectId(o.id);
+                        setEditorSearchQuery('');
+                        // Scroll to the object
+                        if (containerRef.current && o.geometry.x != null && o.geometry.y != null) {
+                          const cx = o.geometry.x * zoom;
+                          const cy = o.geometry.y * zoom;
+                          containerRef.current.scrollTo({ left: cx - 300, top: cy - 200, behavior: 'smooth' });
+                        }
+                      }}
+                    >
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: TYPE_COLORS[o.object_type] ?? '#6b7280', flexShrink: 0 }} />
+                      <span style={{ fontWeight: 500 }}>{o.label}</span>
+                      <span style={{ marginLeft: 'auto', color: 'var(--color-text-secondary)', fontSize: '0.65rem', textTransform: 'uppercase' }}>{o.object_type}</span>
+                    </div>
+                  ))}
+                {objects.filter(o => (o.object_type === 'room' || o.object_type === 'desk') && o.label?.toLowerCase().includes(editorSearchQuery.toLowerCase())).length === 0 && (
+                  <div style={{ padding: '8px 10px', fontSize: '0.72rem', color: 'var(--color-text-secondary)', textAlign: 'center' }}>No results</div>
+                )}
+              </div>
+            )}
+          </div>
           <span style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>
             {floorplan.floor_name}
           </span>
