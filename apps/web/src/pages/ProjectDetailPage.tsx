@@ -116,7 +116,7 @@ export default function ProjectDetailPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
               className="btn btn-sm"
-              style={{ background: '#161b22', color: '#58a6ff', border: '1px solid #30363d', fontWeight: 600 }}
+              style={{ background: '#ffffff', color: '#3b82f6', border: '1px solid #e2e8f0', fontWeight: 600 }}
               onClick={() => navigate(`/kiosk/${project.id}`)}
             >
               View Kiosk
@@ -266,7 +266,7 @@ export default function ProjectDetailPage() {
                     <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
                       v{fp.version}
                     </span>
-                    <div style={{ display: 'flex', gap: 6 }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <button
                         className="btn btn-secondary btn-sm"
                         style={{ padding: '4px 8px', fontSize: '0.72rem', color: 'var(--color-danger)' }}
@@ -285,7 +285,7 @@ export default function ProjectDetailPage() {
                       </button>
                       <button
                         className="btn btn-sm"
-                        style={{ background: '#f1f5f9', color: '#3b82f6', border: '1px solid #e2e8f0', fontWeight: 600 }}
+                        style={{ background: '#ffffff', color: '#3b82f6', border: '1px solid #e2e8f0', fontWeight: 600 }}
                         onClick={() => navigate(`/kiosk/${project.id}/${fp.id}`)}
                       >
                         3D View

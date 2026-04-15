@@ -1993,6 +1993,19 @@ export default function EditorPage() {
               >
                 Download PNG
               </button>
+              <button
+                onClick={() => {
+                  if (!floorplan) return;
+                  window.open(`/kiosk/${floorplan.project_id}/${floorplan.id}`, '_blank');
+                }}
+                style={{
+                  width: '100%', padding: '10px 16px', border: '1px solid var(--color-border)', borderRadius: 8,
+                  background: '#ffffff', color: '#3b82f6', fontWeight: 600,
+                  fontSize: '0.82rem', cursor: 'pointer', marginTop: 8,
+                }}
+              >
+                3D View
+              </button>
               <p style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', marginTop: 8 }}>
                 Objects: {objects.length} | Floor: {floorplan?.floor_name}
               </p>
