@@ -19,6 +19,18 @@ import LayerPanel, { DEFAULT_LAYERS } from '../components/LayerPanel.js';
 import ValidationPanel from '../components/ValidationPanel.js';
 import LabellingPanel from '../components/LabellingPanel.js';
 import AvailabilityPreview, { getAvailabilityColor, STATE_COLORS, ALL_STATES, getStatesForType, cycleState } from '../components/AvailabilityPreview.js';
+import {
+  getPlaceOSConfig,
+  setPlaceOSConfig,
+  testPlaceOSConnection,
+  getPlaceOSZones,
+  getPlaceOSSystems,
+  updatePlaceOSZone,
+  updatePlaceOSSystem,
+  uploadSvgToPlaceOS,
+  type PlaceOSZone,
+  type PlaceOSSystem,
+} from '../lib/api.js';
 
 type Tool = 'select' | 'rect' | 'polygon' | 'pen';
 type EditorMode = 'design' | 'label' | 'preview';
@@ -259,6 +271,30 @@ export default function EditorPage() {
 
   // Bottom panel tab state (for label mode)
   const [bottomTab, setBottomTab] = useState<'labelling' | 'validation'>('labelling');
+
+  // PlaceOS integration state
+  const [placeosConnected, setPlaceosConnected] = useState(false);
+  const [placeosBuildings, setPlaceosBuildings] = useState<PlaceOSZone[]>([]);
+  const [placeosLevels, setPlaceosLevels] = useState<PlaceOSZone[]>([]);
+  const [placeosSystems, setPlaceosSystems] = useState<PlaceOSSystem[]>([]);
+  const [selectedPlaceosBuilding, setSelectedPlaceosBuilding] = useState('');
+  const [selectedPlaceosLevel, setSelectedPlaceosLevel] = useState('');
+  const [placeosPublishing, setPlaceosPublishing] = useState(false);
+  const [placeosStatus, setPlaceosStatus] = useState('');
+
+  // Check PlaceOS connection on mount
+  useEffect(() => {
+    getPlaceOSConfig().then(cfg => {
+      if (cfg.configured) {
+        testPlaceOSConnection().then(r => {
+          if (r.ok) {
+            setPlaceosConnected(true);
+            getPlaceOSZones('building').then(setPlaceosBuildings).catch(() => {});
+          }
+        });
+      }
+    }).catch(() => {});
+  }, []);
 
   // Canvas refs (FloorplanEditor pattern)
   const svgRef = useRef<SVGSVGElement>(null);
@@ -2593,6 +2629,183 @@ export default function EditorPage() {
                     {!allPass && (
                       <p style={{ fontSize: '0.7rem', color: '#dc2626' }}>
                         Fix the issues above before publishing.
+                      </p>
+                    )}
+
+                    {/* PlaceOS Direct Publish */}
+                    {placeosConnected && (
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--color-border)' }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, marginBottom: 8, color: 'var(--color-text)' }}>
+                          Publish to PlaceOS
+                        </div>
+                        <select
+                          value={selectedPlaceosBuilding}
+                          onChange={async (e) => {
+                            setSelectedPlaceosBuilding(e.target.value);
+                            setSelectedPlaceosLevel('');
+                            setPlaceosSystems([]);
+                            if (e.target.value) {
+                              const lvls = await getPlaceOSZones('level', e.target.value);
+                              setPlaceosLevels(lvls);
+                            } else {
+                              setPlaceosLevels([]);
+                            }
+                          }}
+                          style={{ width: '100%', padding: '5px 8px', border: '1px solid var(--color-border)', borderRadius: 4, fontSize: '0.75rem', marginBottom: 6, background: 'var(--color-surface)' }}
+                        >
+                          <option value="">Select building...</option>
+                          {placeosBuildings.map(b => (
+                            <option key={b.id} value={b.id}>{b.display_name || b.name}</option>
+                          ))}
+                        </select>
+                        {selectedPlaceosBuilding && (
+                          <select
+                            value={selectedPlaceosLevel}
+                            onChange={async (e) => {
+                              setSelectedPlaceosLevel(e.target.value);
+                              if (e.target.value) {
+                                const syss = await getPlaceOSSystems(e.target.value);
+                                setPlaceosSystems(syss);
+                              } else {
+                                setPlaceosSystems([]);
+                              }
+                            }}
+                            style={{ width: '100%', padding: '5px 8px', border: '1px solid var(--color-border)', borderRadius: 4, fontSize: '0.75rem', marginBottom: 6, background: 'var(--color-surface)' }}
+                          >
+                            <option value="">Select level...</option>
+                            {placeosLevels.map(l => (
+                              <option key={l.id} value={l.id}>{l.display_name || l.name}</option>
+                            ))}
+                          </select>
+                        )}
+
+                        {/* System-to-room mapping */}
+                        {selectedPlaceosLevel && placeosSystems.length > 0 && (
+                          <div style={{ marginBottom: 8 }}>
+                            <div style={{ fontSize: '0.68rem', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>
+                              Map Systems to Rooms ({placeosSystems.filter(s => s.bookable).length} bookable)
+                            </div>
+                            <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: 4 }}>
+                              {placeosSystems.filter(s => s.bookable).map(sys => {
+                                const matched = bookable.find(o => (o.svg_id || o.id) === sys.map_id);
+                                return (
+                                  <div key={sys.id} style={{
+                                    padding: '4px 8px', borderBottom: '1px solid var(--color-border)',
+                                    display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.7rem',
+                                  }}>
+                                    <span style={{
+                                      width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                                      background: matched ? '#22c55e' : '#f59e0b',
+                                    }} />
+                                    <span style={{ flex: 1, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      {sys.display_name || sys.name}
+                                    </span>
+                                    <select
+                                      value={sys.map_id}
+                                      onChange={async (e) => {
+                                        try {
+                                          await updatePlaceOSSystem(sys.id, { map_id: e.target.value });
+                                          setPlaceosSystems(prev => prev.map(s => s.id === sys.id ? { ...s, map_id: e.target.value } : s));
+                                        } catch { /* ignore */ }
+                                      }}
+                                      style={{ maxWidth: 120, padding: '2px 4px', fontSize: '0.65rem', border: '1px solid var(--color-border)', borderRadius: 3 }}
+                                    >
+                                      <option value="">Unlinked</option>
+                                      {bookable.map(o => (
+                                        <option key={o.id} value={o.svg_id || o.id}>{o.label || o.svg_id || o.id.slice(0, 8)}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        <button
+                          disabled={!allPass || !selectedPlaceosLevel || placeosPublishing}
+                          onClick={async () => {
+                            if (!floorplan || !selectedPlaceosLevel) return;
+                            setPlaceosPublishing(true);
+                            setPlaceosStatus('Building SVG...');
+                            try {
+                              // Build the same PlaceOS SVG as the download button
+                              const w = canvasW;
+                              const h = canvasH;
+                              let bgDataUri = '';
+                              try {
+                                const bgResp = await fetch(`/api/floorplans/${floorplan.id}/source-preview`);
+                                if (bgResp.ok) {
+                                  const ct = bgResp.headers.get('content-type') || '';
+                                  if (ct.includes('svg')) {
+                                    bgDataUri = `data:image/svg+xml;base64,${btoa(await bgResp.text())}`;
+                                  } else {
+                                    const blob = await bgResp.blob();
+                                    bgDataUri = await new Promise<string>((resolve) => {
+                                      const reader = new FileReader();
+                                      reader.onloadend = () => resolve(reader.result as string);
+                                      reader.readAsDataURL(blob);
+                                    });
+                                  }
+                                }
+                              } catch { /* continue */ }
+
+                              const escXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                              const renderShape = (obj: typeof objects[0], attrs: string) => {
+                                const geom = obj.geometry;
+                                if (geom.type === 'rect') return `<rect x="${geom.x ?? 0}" y="${geom.y ?? 0}" width="${geom.width ?? 50}" height="${geom.height ?? 50}" rx="3" ${attrs}/>`;
+                                if (geom.type === 'polygon' && geom.points) return `<polygon points="${geom.points.map((p: {x:number;y:number}) => `${p.x},${p.y}`).join(' ')}" ${attrs}/>`;
+                                if (geom.type === 'circle') return `<circle cx="${geom.x ?? 0}" cy="${geom.y ?? 0}" r="${geom.r ?? 12}" ${attrs}/>`;
+                                if (geom.type === 'path' && geom.d) return `<path d="${escXml(geom.d)}" ${attrs}/>`;
+                                return '';
+                              };
+
+                              let svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">\n`;
+                              svg += `<style>\n  .st4, .st5 { fill: none; pointer-events: all; }\n  .free, .available { fill: #4CAF50; fill-opacity: 0.4; }\n  .booked, .pending { fill: #FF9800; fill-opacity: 0.4; }\n  .occupied { fill: #F44336; fill-opacity: 0.4; }\n  .checked-in { fill: #2196F3; fill-opacity: 0.4; }\n  .out-of-service, .unavailable { fill: #9E9E9E; fill-opacity: 0.4; }\n  .restricted { fill: #795548; fill-opacity: 0.4; }\n</style>\n`;
+                              if (bgDataUri) svg += `<g id="bkd"><image href="${bgDataUri}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/></g>\n`;
+                              svg += `<g id="room-bookings">\n`;
+                              for (const obj of bookable) {
+                                const mapId = obj.svg_id || obj.id;
+                                const placeosId = mapId.startsWith('area-') ? `${mapId}-status` : `area-${mapId}-status`;
+                                const cls = obj.object_type === 'desk' ? 'st5' : 'st4';
+                                svg += `  ${renderShape(obj, `id="${escXml(placeosId)}" class="${cls}"`)}\n`;
+                              }
+                              svg += `</g>\n</svg>\n`;
+
+                              setPlaceosStatus('Uploading to PlaceOS...');
+                              const filename = `${floorplan.floor_name?.replace(/\s+/g, '-') || 'floorplan'}.svg`;
+                              const result = await uploadSvgToPlaceOS(svg, filename);
+
+                              setPlaceosStatus('Updating zone map...');
+                              await updatePlaceOSZone(selectedPlaceosLevel, { map_id: result.file_url } as any);
+
+                              setPlaceosStatus('Published!');
+                              setTimeout(() => setPlaceosStatus(''), 3000);
+                            } catch (err) {
+                              setPlaceosStatus(`Error: ${err instanceof Error ? err.message : 'Failed'}`);
+                            } finally {
+                              setPlaceosPublishing(false);
+                            }
+                          }}
+                          style={{
+                            width: '100%', padding: '8px 14px', border: 'none', borderRadius: 6,
+                            background: allPass && selectedPlaceosLevel && !placeosPublishing ? '#3b82f6' : '#9ca3af',
+                            color: 'white', fontWeight: 600, fontSize: '0.78rem',
+                            cursor: allPass && selectedPlaceosLevel ? 'pointer' : 'not-allowed',
+                          }}
+                        >
+                          {placeosPublishing ? placeosStatus : 'Upload & Publish to PlaceOS'}
+                        </button>
+                        {placeosStatus && !placeosPublishing && (
+                          <p style={{ fontSize: '0.7rem', color: placeosStatus.startsWith('Error') ? '#dc2626' : '#22c55e', marginTop: 4 }}>
+                            {placeosStatus}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {!placeosConnected && (
+                      <p style={{ fontSize: '0.68rem', color: 'var(--color-text-secondary)', marginTop: 8 }}>
+                        Connect to PlaceOS on the project page to enable direct publishing.
                       </p>
                     )}
                   </div>
