@@ -1584,7 +1584,7 @@ export default function EditorPage() {
             onClick={() => {
               const input = document.createElement('input');
               input.type = 'file';
-              input.accept = 'image/jpeg,image/png,.jpg,.jpeg,.png';
+              input.accept = 'image/jpeg,image/png,image/svg+xml,application/pdf,.jpg,.jpeg,.png,.svg,.pdf';
               input.onchange = (evt) => {
                 const target = evt.target as HTMLInputElement;
                 const file = target.files?.[0];
@@ -1597,7 +1597,7 @@ export default function EditorPage() {
               };
               input.click();
             }}
-            title="Upload background image"
+            title="Upload floor plan (PNG, JPEG, PDF, SVG)"
           >
             <span className="dc-tool-label">Upload Image</span>
           </button>

@@ -98,7 +98,7 @@ router.post('/:id/save', (req, res) => {
   }
 });
 
-// Upload source image (JPEG, PNG — processed with Sharp)
+// Upload source image (JPEG, PNG, PDF, SVG — processed to PNG)
 router.post('/:id/upload-source', upload.single('source'), async (req, res) => {
   try {
     const id = req.params.id as string;
@@ -113,35 +113,79 @@ router.post('/:id/upload-source', upload.single('source'), async (req, res) => {
       return;
     }
 
-    // Use Sharp to validate and process the image
-    const image = sharp(req.file.buffer).rotate().toColorspace('srgb');
-    const metadata = await image.metadata();
-
-    if (!metadata.format || !['jpeg', 'png', 'webp', 'tiff'].includes(metadata.format)) {
-      res.status(400).json({
-        error: 'Invalid image type. Accepted: JPEG, PNG, WebP, TIFF.',
-        details: [{ field: 'file', message: `Detected format: ${metadata.format ?? 'unknown'}` }],
-      });
-      return;
-    }
-
-    // Convert everything to PNG for consistent handling on the canvas
+    const mime = req.file.mimetype;
+    const origName = req.file.originalname.toLowerCase();
     const outputFilename = `${id}.png`;
     const outputPath = path.join(FLOORPLAN_UPLOADS, outputFilename);
-    const info = await image.png({ quality: 90 }).toFile(outputPath);
+    let width: number;
+    let height: number;
+
+    if (mime === 'application/pdf' || origName.endsWith('.pdf')) {
+      // ── PDF: render first page to PNG via pdfjs-dist + node-canvas ──
+      const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+      const { createCanvas } = await import('canvas');
+
+      const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(req.file.buffer) });
+      const pdfDoc = await loadingTask.promise;
+      const page = await pdfDoc.getPage(1);
+
+      // Render at 2x scale for quality
+      const scale = 2;
+      const viewport = page.getViewport({ scale });
+      const canvas = createCanvas(viewport.width, viewport.height);
+      const ctx = canvas.getContext('2d');
+
+      await page.render({ canvasContext: ctx as any, viewport }).promise;
+
+      // Convert canvas to PNG via Sharp
+      const pngBuffer = canvas.toBuffer('image/png');
+      const info = await sharp(pngBuffer).png().toFile(outputPath);
+      width = info.width;
+      height = info.height;
+
+    } else if (mime === 'image/svg+xml' || origName.endsWith('.svg')) {
+      // ── SVG: save as-is and also render to PNG for canvas background ──
+      const svgPath = path.join(FLOORPLAN_UPLOADS, `${id}.svg`);
+      fs.writeFileSync(svgPath, req.file.buffer);
+
+      // Convert SVG to PNG via Sharp
+      const info = await sharp(req.file.buffer, { density: 150 }).png().toFile(outputPath);
+      width = info.width;
+      height = info.height;
+
+      // Also store the original SVG
+      updateFloorplan(id, { svg_output: req.file.buffer.toString('utf-8') });
+
+    } else {
+      // ── Raster image: JPEG, PNG, WebP, TIFF ──
+      const image = sharp(req.file.buffer).rotate().toColorspace('srgb');
+      const metadata = await image.metadata();
+
+      if (!metadata.format || !['jpeg', 'png', 'webp', 'tiff'].includes(metadata.format)) {
+        res.status(400).json({
+          error: 'Unsupported file type. Accepted: JPEG, PNG, WebP, TIFF, PDF, SVG.',
+          details: [{ field: 'file', message: `Detected format: ${metadata.format ?? 'unknown'}` }],
+        });
+        return;
+      }
+
+      const info = await image.png({ quality: 90 }).toFile(outputPath);
+      width = info.width;
+      height = info.height;
+    }
 
     updateFloorplan(id, {
       source_image_path: outputPath,
       source_type: 'image/png',
-      canvas_width: info.width,
-      canvas_height: info.height,
+      canvas_width: width,
+      canvas_height: height,
     });
 
     res.json({
       success: true,
       previewUrl: `/api/floorplans/${id}/source-preview`,
-      width: info.width,
-      height: info.height,
+      width,
+      height,
     });
   } catch (err) {
     console.error('Upload source error:', err);
