@@ -207,7 +207,17 @@ export default function EditorPage() {
 
   // Layer state
   const [layers, setLayers] = useState<EditorLayer[]>(DEFAULT_LAYERS);
-  const [activeLayerId, setActiveLayerId] = useState<string>('rooms');
+  const [activeLayerId, setActiveLayerId_] = useState<string>('rooms');
+  const setActiveLayerId = useCallback((id: string) => {
+    setActiveLayerId_(id);
+    if (id === 'desks') {
+      setPlaceWidth(30);
+      setPlaceHeight(20);
+    } else if (id === 'rooms') {
+      setPlaceWidth(80);
+      setPlaceHeight(60);
+    }
+  }, []);
 
   // Place tool size state
   const [placeWidth, setPlaceWidth] = useState(80);
@@ -770,7 +780,7 @@ export default function EditorPage() {
         object_type: objectType,
         label,
         svg_id: svgId,
-        geometry: { type: 'rect', x: x - (objectType === 'desk' ? 15 : placeWidth / 2), y: y - (objectType === 'desk' ? 10 : placeHeight / 2), width: objectType === 'desk' ? 30 : placeWidth, height: objectType === 'desk' ? 20 : placeHeight },
+        geometry: { type: 'rect', x: x - placeWidth / 2, y: y - placeHeight / 2, width: placeWidth, height: placeHeight },
         layer: activeLayerId,
         fill_color: color + '55',
         stroke_color: color,
