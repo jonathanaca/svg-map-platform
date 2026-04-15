@@ -664,7 +664,8 @@ export default function EditorPage() {
           }
         }
 
-        // Bulk create all desks
+        // Bulk create all desks, then clear placement mode
+        setPlacingDeskLayout(null);
         Promise.all(newDesks.map(d => createObject(floorplanId, d)))
           .then((created) => {
             setObjects(prev => [...prev, ...created]);
