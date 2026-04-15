@@ -795,8 +795,9 @@ export default function EditorPage() {
             setDirty(true);
           }).catch(console.error);
         }
-        // Reset for next wall (keep drawing)
-        setWallStart({ x: wx, y: wy });
+        // Reset — click again to start next wall
+        setWallStart(null);
+        setWallPreview(null);
       }
       e.preventDefault();
       return;
