@@ -9,30 +9,12 @@ interface Props {
   scale: number;
 }
 
-const ICON_MAP: Record<string, string> = {
-  'male-restroom': '🚹',
-  'female-restroom': '🚺',
-  'accessible-restroom': '♿',
-  'staircase': '🪜',
-  'elevator': '🛗',
-  'fire-exit': '🚪',
-  'cafe': '☕',
-  'reception': '🛎',
-  'aed': '💚',
-  'first-aid': '🏥',
-  'lockers': '🔐',
-  'presentation': '📽',
-  'door': '🚪',
-  'window': '🪟',
-};
-
 export default function AmenityPin({ obj, canvasW, canvasH, scale }: Props) {
   const geom = obj.geometry;
   const x = ((geom.x ?? 0) - canvasW / 2) * scale;
   const z = ((geom.y ?? 0) - canvasH / 2) * scale;
 
   const iconId = (obj.metadata as Record<string, unknown>)?.icon as string | undefined;
-  const emoji = iconId ? ICON_MAP[iconId] ?? '📍' : '📍';
   const label = obj.label || iconId?.replace(/-/g, ' ') || 'Amenity';
 
   return (
@@ -65,12 +47,8 @@ export default function AmenityPin({ obj, canvasW, canvasH, scale }: Props) {
           whiteSpace: 'nowrap',
           boxShadow: '0 2px 10px rgba(0,0,0,0.5)',
           border: '1px solid #334155',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
         }}>
-          <span style={{ fontSize: 13 }}>{emoji}</span>
-          <span>{label}</span>
+          {label}
         </div>
       </Html>
     </group>
