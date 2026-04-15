@@ -58,14 +58,14 @@ const AMENITY_ICONS: { id: string; label: string; emoji: string; svg: string }[]
 
 const FURNITURE_ASSETS: { id: string; label: string; icon: string; svg: string; w: number; h: number; color: string }[] = [
   // Furniture
-  { id: 'desk-single', label: 'Single Desk', icon: 'D', svg: '<rect x="3" y="8" width="18" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 18v3M17 18v3M7 8V5h10v3" fill="none" stroke="currentColor" stroke-width="1.5"/>', w: 30, h: 20, color: '#2563eb' },
-  { id: 'desk-pair', label: 'Desk Pair', icon: 'DD', svg: '<rect x="2" y="6" width="9" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="13" y="6" width="9" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 13v3M8 13v3M16 13v3M19 13v3" fill="none" stroke="currentColor" stroke-width="1.5"/>', w: 50, h: 20, color: '#2563eb' },
-  { id: 'desk-pod', label: 'Desk Pod (4)', icon: '4D', svg: '<rect x="3" y="3" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="13" y="3" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="3" y="13" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="13" y="13" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>', w: 50, h: 40, color: '#2563eb' },
+  { id: 'desk-single', label: 'Single Desk', icon: 'D', svg: '<rect x="2" y="3" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="6" y="6" width="12" height="4" rx="1" fill="currentColor" opacity="0.12"/><rect x="9" y="11" width="6" height="2" rx="0.5" fill="currentColor" opacity="0.12"/><circle cx="12" cy="20" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/>', w: 30, h: 20, color: '#2563eb' },
+  { id: 'desk-pair', label: 'Desk Pair', icon: 'DD', svg: '<rect x="1" y="3" width="10" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="13" y="3" width="10" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="3" y="6" width="6" height="3" rx="0.8" fill="currentColor" opacity="0.12"/><rect x="15" y="6" width="6" height="3" rx="0.8" fill="currentColor" opacity="0.12"/><circle cx="6" cy="20" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="18" cy="20" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/>', w: 50, h: 20, color: '#2563eb' },
+  { id: 'desk-pod', label: 'Desk Pod (4)', icon: '4D', svg: '<rect x="2" y="2" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="13" y="2" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="2" y="13" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="13" y="13" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="4" y="4" width="5" height="2.5" rx="0.5" fill="currentColor" opacity="0.12"/><rect x="15" y="4" width="5" height="2.5" rx="0.5" fill="currentColor" opacity="0.12"/><rect x="4" y="15" width="5" height="2.5" rx="0.5" fill="currentColor" opacity="0.12"/><rect x="15" y="15" width="5" height="2.5" rx="0.5" fill="currentColor" opacity="0.12"/>', w: 50, h: 40, color: '#2563eb' },
   { id: 'table-small', label: 'Small Table', icon: 'T', svg: '<rect x="5" y="5" width="14" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="2" fill="currentColor" opacity="0.3"/>', w: 30, h: 30, color: '#92400e' },
   { id: 'table-medium', label: 'Medium Table', icon: 'T', svg: '<rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 10h8M8 14h8" stroke="currentColor" stroke-width="1" opacity="0.3"/>', w: 50, h: 30, color: '#92400e' },
   { id: 'table-large', label: 'Large Table', icon: 'T', svg: '<rect x="2" y="5" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 9h10M7 12h10M7 15h10" stroke="currentColor" stroke-width="1" opacity="0.3"/>', w: 80, h: 40, color: '#92400e' },
   { id: 'table-round', label: 'Round Table', icon: 'O', svg: '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" fill="currentColor" opacity="0.2"/>', w: 30, h: 30, color: '#92400e' },
-  { id: 'standing-desk', label: 'Standing Desk', icon: 'SD', svg: '<rect x="4" y="4" width="16" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 12v8M16 12v8M6 20h4M14 20h4" fill="none" stroke="currentColor" stroke-width="1.5"/>', w: 30, h: 15, color: '#4f46e5' },
+  { id: 'standing-desk', label: 'Standing Desk', icon: 'SD', svg: '<rect x="3" y="3" width="18" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="6" y="5" width="12" height="4" rx="1" fill="currentColor" opacity="0.12"/><path d="M8 14v6M16 14v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6 20h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>', w: 30, h: 15, color: '#4f46e5' },
   // Seating
   { id: 'bench', label: 'Bench', icon: 'B', svg: '<rect x="2" y="10" width="20" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 14v4M19 14v4" fill="none" stroke="currentColor" stroke-width="1.5"/>', w: 50, h: 12, color: '#059669' },
   { id: 'lounge-chair', label: 'Lounge Chair', icon: 'LC', svg: '<path d="M6 8a6 6 0 0 1 12 0v6H6V8z" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="4" y="14" width="16" height="4" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 12v4M20 12v4" stroke="currentColor" stroke-width="1.5"/>', w: 25, h: 25, color: '#059669' },
@@ -770,7 +770,7 @@ export default function EditorPage() {
         object_type: objectType,
         label,
         svg_id: svgId,
-        geometry: { type: 'rect', x: x - placeWidth / 2, y: y - placeHeight / 2, width: placeWidth, height: placeHeight },
+        geometry: { type: 'rect', x: x - (objectType === 'desk' ? 15 : placeWidth / 2), y: y - (objectType === 'desk' ? 10 : placeHeight / 2), width: objectType === 'desk' ? 30 : placeWidth, height: objectType === 'desk' ? 20 : placeHeight },
         layer: activeLayerId,
         fill_color: color + '55',
         stroke_color: color,
@@ -778,6 +778,7 @@ export default function EditorPage() {
         visible: true,
         locked: false,
         z_index: objects.length,
+        ...(objectType === 'desk' ? { metadata: { furnitureType: 'desk-single' } } : {}),
       }).then((newObj) => {
         setObjects((prev) => [...prev, newObj]);
         setSelectedObjectId(newObj.id);
@@ -888,6 +889,7 @@ export default function EditorPage() {
           visible: true,
           locked: false,
           z_index: objects.length,
+          ...(objectType === 'desk' ? { metadata: { furnitureType: 'desk-single' } } : {}),
         }).then((newObj) => {
           setObjects((prev) => [...prev, newObj]);
           setSelectedObjectId(newObj.id);
@@ -1599,6 +1601,10 @@ export default function EditorPage() {
                 const rw = geom.width ?? 50, rh = geom.height ?? 50;
                 const fontSize = Math.max(8, Math.min(rw / 6, rh / 3, 24));
 
+                // Look up furniture SVG asset if this object has one
+                const furnitureType = (obj.metadata as Record<string, unknown>)?.furnitureType as string | undefined;
+                const furnitureAsset = furnitureType ? FURNITURE_ASSETS.find(a => a.id === furnitureType) : null;
+
                 return (
                   <g key={obj.id} data-object-id={obj.id} opacity={obj.opacity}
                     onClick={(ev) => {
@@ -1608,7 +1614,13 @@ export default function EditorPage() {
                         setStatePopup({ objectId: obj.id, x: ev.clientX, y: ev.clientY });
                       }
                     }}
+                    transform={
+                      geom.rotation
+                        ? `rotate(${geom.rotation} ${rx + rw / 2} ${ry + rh / 2})`
+                        : undefined
+                    }
                   >
+                    {/* Background rect — always present for hit area + selection */}
                     <rect
                       x={rx} y={ry} width={rw} height={rh}
                       fill={fillColor}
@@ -1616,12 +1628,32 @@ export default function EditorPage() {
                       strokeWidth={sw}
                       rx={4}
                       style={{ cursor: editorMode === 'preview' ? 'pointer' : 'move' }}
-                      transform={
-                        geom.rotation
-                          ? `rotate(${geom.rotation} ${rx + rw / 2} ${ry + rh / 2})`
-                          : undefined
-                      }
                     />
+                    {/* Furniture SVG artwork overlay */}
+                    {furnitureAsset && (
+                      <g
+                        transform={`translate(${rx}, ${ry}) scale(${rw / 24}, ${rh / 24})`}
+                        style={{ pointerEvents: 'none' }}
+                        dangerouslySetInnerHTML={{
+                          __html: furnitureAsset.svg.replace(/currentColor/g, objStroke),
+                        }}
+                      />
+                    )}
+                    {/* Desk icon — show a small monitor/keyboard hint inside */}
+                    {!furnitureAsset && obj.object_type === 'desk' && rw >= 16 && rh >= 16 && (
+                      <g style={{ pointerEvents: 'none' }}>
+                        <rect
+                          x={rx + rw * 0.2} y={ry + rh * 0.2}
+                          width={rw * 0.6} height={rh * 0.3}
+                          rx={1} fill="none" stroke="#fff" strokeWidth={sw * 0.8} opacity={0.6}
+                        />
+                        <rect
+                          x={rx + rw * 0.3} y={ry + rh * 0.58}
+                          width={rw * 0.4} height={rh * 0.15}
+                          rx={0.5} fill="none" stroke="#fff" strokeWidth={sw * 0.6} opacity={0.4}
+                        />
+                      </g>
+                    )}
                     {/* Label text */}
                     {obj.label && (
                       <text
@@ -1973,7 +2005,14 @@ export default function EditorPage() {
                   {
                     label: 'No duplicate IDs',
                     pass: new Set(bookable.map(o => o.svg_id || o.id)).size === bookable.length,
-                    detail: '',
+                    detail: (() => {
+                      const seen = new Map<string, number>();
+                      for (const o of bookable) {
+                        const sid = o.svg_id || o.id;
+                        seen.set(sid, (seen.get(sid) || 0) + 1);
+                      }
+                      return [...seen.entries()].filter(([, c]) => c > 1).map(([id, c]) => `${id} (×${c})`).join(', ');
+                    })(),
                   },
                   {
                     label: 'All bookable spaces have labels',
@@ -2045,7 +2084,7 @@ export default function EditorPage() {
                     )}
 
                     <div style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
-                      Exports with <strong>no fill</strong> overlays on bookable spaces. IDs formatted as <code style={{ fontSize: '0.68rem', background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>area-&#123;mapId&#125;-status</code> to match PlaceOS control system map IDs.
+                      Exports with <strong>no fill</strong> overlays on bookable spaces. IDs formatted as <code style={{ fontSize: '0.68rem', background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>area-&#123;mapId&#125;-status</code> to match PlaceOS control system map IDs. Includes CSS status classes: <code style={{ fontSize: '0.68rem', background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>free</code>, <code style={{ fontSize: '0.68rem', background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>available</code>, <code style={{ fontSize: '0.68rem', background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>booked</code>, <code style={{ fontSize: '0.68rem', background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>occupied</code>, <code style={{ fontSize: '0.68rem', background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>out-of-service</code>, <code style={{ fontSize: '0.68rem', background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>restricted</code>, <code style={{ fontSize: '0.68rem', background: '#f1f5f9', padding: '1px 4px', borderRadius: 3 }}>unavailable</code>.
                     </div>
 
                     <button
@@ -2101,9 +2140,15 @@ export default function EditorPage() {
                         svg += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">\n`;
                         svg += `<!-- PlaceOS SVG Map | Bookable spaces: ${bookable.length} | Generated: ${new Date().toISOString()} -->\n`;
 
-                        // Internal CSS
+                        // Internal CSS — PlaceOS status classes + no-fill defaults
                         svg += `<style>\n`;
-                        svg += `  .bookable { pointer-events: all; }\n`;
+                        svg += `  .st4, .st5 { fill: none; pointer-events: all; }\n`;
+                        svg += `  .free, .available { fill: #4CAF50; fill-opacity: 0.4; pointer-events: all; }\n`;
+                        svg += `  .booked, .pending { fill: #FF9800; fill-opacity: 0.4; pointer-events: all; }\n`;
+                        svg += `  .occupied { fill: #F44336; fill-opacity: 0.4; pointer-events: all; }\n`;
+                        svg += `  .checked-in { fill: #2196F3; fill-opacity: 0.4; pointer-events: all; }\n`;
+                        svg += `  .out-of-service, .unavailable { fill: #9E9E9E; fill-opacity: 0.4; pointer-events: all; }\n`;
+                        svg += `  .restricted { fill: #795548; fill-opacity: 0.4; pointer-events: all; }\n`;
                         svg += `  .roomLabel { font-family: Arial, sans-serif; font-weight: 600; fill: #333; text-anchor: middle; dominant-baseline: central; }\n`;
                         svg += `  .deskLabel { font-family: Arial, sans-serif; font-weight: 400; fill: #333; text-anchor: middle; dominant-baseline: central; }\n`;
                         svg += `</style>\n`;
@@ -2139,12 +2184,13 @@ export default function EditorPage() {
                           svg += `</g>\n`;
                         }
 
-                        // Layer: room-bookings (bookable overlays — NO FILL)
+                        // Layer: room-bookings (bookable overlays — no fill, PlaceOS ID convention)
                         svg += `<g id="room-bookings">\n`;
                         for (const obj of bookable) {
                           const mapId = obj.svg_id || obj.id;
                           const placeosId = mapId.startsWith('area-') ? `${mapId}-status` : `area-${mapId}-status`;
-                          svg += `  ${renderShape(obj, `id="${escXml(placeosId)}" class="bookable" data-map-id="${escXml(mapId)}" data-type="${obj.object_type}"`)}\n`;
+                          const cls = obj.object_type === 'desk' ? 'st5' : 'st4';
+                          svg += `  ${renderShape(obj, `id="${escXml(placeosId)}" class="${cls}"`)}\n`;
                         }
                         svg += `</g>\n`;
 
@@ -2190,6 +2236,181 @@ export default function EditorPage() {
                       }}
                     >
                       Publish SVG for PlaceOS
+                    </button>
+
+                    <button
+                      onClick={async () => {
+                        if (!floorplan) return;
+                        const w = canvasW;
+                        const h = canvasH;
+
+                        let bgDataUri = '';
+                        try {
+                          const bgResp = await fetch(`/api/floorplans/${floorplan.id}/source-preview`);
+                          if (bgResp.ok) {
+                            const ct = bgResp.headers.get('content-type') || '';
+                            if (ct.includes('svg')) {
+                              bgDataUri = `data:image/svg+xml;base64,${btoa(await bgResp.text())}`;
+                            } else {
+                              const blob = await bgResp.blob();
+                              bgDataUri = await new Promise<string>((resolve) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result as string);
+                                reader.readAsDataURL(blob);
+                              });
+                            }
+                          }
+                        } catch { /* continue without background */ }
+
+                        const bookableObjs = objects.filter(o => o.object_type === 'room' || o.object_type === 'desk');
+                        const escXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+                        const renderShapePreview = (obj: typeof objects[0], attrs: string) => {
+                          const geom = obj.geometry;
+                          if (geom.type === 'rect') {
+                            return `<rect x="${geom.x ?? 0}" y="${geom.y ?? 0}" width="${geom.width ?? 50}" height="${geom.height ?? 50}" rx="3" ${attrs}${geom.rotation ? ` transform="rotate(${geom.rotation} ${(geom.x ?? 0) + (geom.width ?? 50) / 2} ${(geom.y ?? 0) + (geom.height ?? 50) / 2})"` : ''}/>`;
+                          } else if (geom.type === 'polygon' && geom.points) {
+                            return `<polygon points="${geom.points.map((p: {x:number;y:number}) => `${p.x},${p.y}`).join(' ')}" ${attrs}/>`;
+                          } else if (geom.type === 'circle') {
+                            return `<circle cx="${geom.x ?? 0}" cy="${geom.y ?? 0}" r="${geom.r ?? 12}" ${attrs}/>`;
+                          } else if (geom.type === 'path' && geom.d) {
+                            return `<path d="${escXml(geom.d)}" ${attrs}/>`;
+                          }
+                          return '';
+                        };
+
+                        // Build overlay elements data for the preview
+                        const overlayData = bookableObjs.map(obj => {
+                          const mapId = obj.svg_id || obj.id;
+                          const placeosId = mapId.startsWith('area-') ? `${mapId}-status` : `area-${mapId}-status`;
+                          const cls = obj.object_type === 'desk' ? 'st5' : 'st4';
+                          const type = obj.object_type;
+                          return { placeosId, cls, type, shape: renderShapePreview(obj, `id="${escXml(placeosId)}" class="${cls}" data-type="${type}"`) };
+                        });
+
+                        const states = ['free', 'available', 'booked', 'pending', 'occupied', 'checked-in', 'out-of-service', 'unavailable', 'restricted'];
+                        const stateColors: Record<string, string> = { free: '#4CAF50', available: '#4CAF50', booked: '#FF9800', pending: '#FF9800', occupied: '#F44336', 'checked-in': '#2196F3', 'out-of-service': '#9E9E9E', unavailable: '#9E9E9E', restricted: '#795548' };
+
+                        const previewHtml = `<!DOCTYPE html>
+<html><head><title>PlaceOS Export Preview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; display: flex; height: 100vh; }
+  .sidebar { width: 280px; background: #fff; border-right: 1px solid #e2e8f0; overflow-y: auto; padding: 16px; flex-shrink: 0; }
+  .sidebar h2 { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #1e293b; }
+  .sidebar h3 { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; margin: 16px 0 8px; letter-spacing: 0.5px; }
+  .state-btn { display: inline-block; padding: 4px 10px; border-radius: 99px; border: 2px solid transparent; font-size: 11px; font-weight: 600; cursor: pointer; margin: 2px; color: #fff; transition: all 0.15s; }
+  .state-btn:hover { opacity: 0.85; transform: scale(1.05); }
+  .state-btn.active { border-color: #1e293b; box-shadow: 0 0 0 2px rgba(30,41,59,0.2); }
+  .bulk-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+  .map-area { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; overflow: auto; }
+  .map-area svg { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.12); background: #fff; }
+  .overlay-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; margin-bottom: 2px; cursor: pointer; transition: background 0.1s; }
+  .overlay-item:hover { background: #f1f5f9; }
+  .overlay-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.1); }
+  .overlay-id { font-size: 11px; font-weight: 500; color: #334155; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .overlay-state { font-size: 10px; color: #64748b; }
+  .info { font-size: 11px; color: #64748b; line-height: 1.5; margin-bottom: 12px; padding: 8px; background: #f8fafc; border-radius: 6px; }
+</style></head>
+<body>
+<div class="sidebar">
+  <h2>PlaceOS Export Preview</h2>
+  <div class="info">Click a state below to apply it to all overlays, or click individual spaces on the map to cycle their state.</div>
+  <h3>Set All States</h3>
+  <div class="bulk-row">
+    <button class="state-btn" style="background:#94a3b8" onclick="setAll('none')">Clear</button>
+    ${states.map(s => `<button class="state-btn" style="background:${stateColors[s]}" onclick="setAll('${s}')">${s.replace(/-/g, ' ')}</button>`).join('\n    ')}
+  </div>
+  <h3>Spaces (${bookableObjs.length})</h3>
+  <div id="space-list"></div>
+</div>
+<div class="map-area">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
+    <style>
+      .st4, .st5 { fill: none; pointer-events: all; cursor: pointer; }
+      .free, .available { fill: #4CAF50; fill-opacity: 0.4; pointer-events: all; cursor: pointer; }
+      .booked, .pending { fill: #FF9800; fill-opacity: 0.4; pointer-events: all; cursor: pointer; }
+      .occupied { fill: #F44336; fill-opacity: 0.4; pointer-events: all; cursor: pointer; }
+      .checked-in { fill: #2196F3; fill-opacity: 0.4; pointer-events: all; cursor: pointer; }
+      .out-of-service, .unavailable { fill: #9E9E9E; fill-opacity: 0.4; pointer-events: all; cursor: pointer; }
+      .restricted { fill: #795548; fill-opacity: 0.4; pointer-events: all; cursor: pointer; }
+    </style>
+    ${bgDataUri ? `<g id="bkd"><image href="${bgDataUri}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/></g>` : ''}
+    <g id="room-bookings">
+      ${overlayData.map(o => o.shape).join('\n      ')}
+    </g>
+  </svg>
+</div>
+<script>
+  const states = ${JSON.stringify(states)};
+  const stateColors = ${JSON.stringify(stateColors)};
+  const overlays = ${JSON.stringify(overlayData.map(o => ({ id: o.placeosId, cls: o.cls, type: o.type })))};
+  const currentStates = {};
+
+  function setAll(state) {
+    overlays.forEach(o => {
+      setState(o.id, state === 'none' ? o.cls : state);
+    });
+    renderList();
+  }
+
+  function setState(id, cls) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const overlay = overlays.find(o => o.id === id);
+    el.setAttribute('class', cls);
+    currentStates[id] = cls;
+  }
+
+  function cycleState(id) {
+    const overlay = overlays.find(o => o.id === id);
+    if (!overlay) return;
+    const cur = currentStates[id] || overlay.cls;
+    const validStates = overlay.type === 'desk'
+      ? ['available', 'booked', 'occupied', 'restricted', 'unavailable']
+      : ['free', 'checked-in', 'pending', 'booked', 'out-of-service'];
+    const allOptions = [overlay.cls, ...validStates];
+    const idx = allOptions.indexOf(cur);
+    const next = allOptions[(idx + 1) % allOptions.length];
+    setState(id, next);
+    renderList();
+  }
+
+  // Click on SVG overlays
+  document.querySelectorAll('#room-bookings > *').forEach(el => {
+    el.addEventListener('click', () => cycleState(el.id));
+  });
+
+  function renderList() {
+    const list = document.getElementById('space-list');
+    list.innerHTML = overlays.map(o => {
+      const cur = currentStates[o.id] || o.cls;
+      const isStatus = states.includes(cur);
+      const color = isStatus ? stateColors[cur] : '#94a3b8';
+      const label = isStatus ? cur.replace(/-/g, ' ') : 'no state';
+      return '<div class="overlay-item" onclick="cycleState(\\'' + o.id + '\\')">' +
+        '<span class="overlay-dot" style="background:' + color + '"></span>' +
+        '<span class="overlay-id">' + o.id.replace('area-','').replace('-status','') + '</span>' +
+        '<span class="overlay-state">' + label + '</span></div>';
+    }).join('');
+  }
+  renderList();
+</script>
+</body></html>`;
+
+                        const previewBlob = new Blob([previewHtml], { type: 'text/html' });
+                        const previewUrl = URL.createObjectURL(previewBlob);
+                        window.open(previewUrl, '_blank');
+                      }}
+                      disabled={!allPass}
+                      style={{
+                        width: '100%', padding: '10px 16px', border: '2px solid #059669', borderRadius: 8,
+                        background: 'transparent', color: '#059669', fontWeight: 600,
+                        fontSize: '0.82rem', cursor: allPass ? 'pointer' : 'not-allowed', marginBottom: 8,
+                        opacity: allPass ? 1 : 0.5,
+                      }}
+                    >
+                      Preview Export
                     </button>
 
                     {!allPass && (

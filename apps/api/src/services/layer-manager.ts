@@ -107,6 +107,16 @@ export class LayerManager {
       );
     }
 
+    if (this.publishMode) {
+      rules.push('.st4, .st5 { fill: none; pointer-events: all; }');
+      rules.push('.free, .available { fill: #4CAF50; fill-opacity: 0.4; pointer-events: all; }');
+      rules.push('.booked, .pending { fill: #FF9800; fill-opacity: 0.4; pointer-events: all; }');
+      rules.push('.occupied { fill: #F44336; fill-opacity: 0.4; pointer-events: all; }');
+      rules.push('.checked-in { fill: #2196F3; fill-opacity: 0.4; pointer-events: all; }');
+      rules.push('.out-of-service, .unavailable { fill: #9E9E9E; fill-opacity: 0.4; pointer-events: all; }');
+      rules.push('.restricted { fill: #795548; fill-opacity: 0.4; pointer-events: all; }');
+    }
+
     return rules;
   }
 
@@ -270,23 +280,16 @@ export class LayerManager {
       const is_desk = room.id.startsWith('desk-');
 
       if (this.publishMode) {
-        // PlaceOS mode: overlay with no fill, ID format area-{mapId}-status
+        // PlaceOS mode: no-fill overlay, ID format area-{mapId}-status
         const mapId = room.id;
         const placeosId = mapId.startsWith('area-') ? `${mapId}-status` : `area-${mapId}-status`;
         elements.push({
           tag: 'rect',
           attributes: {
             id: placeosId,
-            class: 'bookable',
+            class: is_desk ? 'st5' : 'st4',
             x: String(rx), y: String(ry),
             width: String(rw), height: String(rh),
-            stroke: 'none',
-            'stroke-width': '0',
-            rx: is_desk ? '2' : '3',
-            'data-label': room.label,
-            'aria-label': room.label,
-            'data-type': is_desk ? 'desk' : 'room',
-            'data-map-id': mapId,
           },
           children: [],
         });
