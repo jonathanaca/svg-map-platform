@@ -21,17 +21,14 @@ export default function RoomMesh({ obj, canvasW, canvasH, scale, state }: Props)
 
   const height = getExtrusionHeight(obj.object_type);
   const statusColor = state ? getAvailabilityColor(state) : null;
-  const wallColor = '#94a3b8';
   const topColor = statusColor ?? '#e2e8f0';
   const sideColor = statusColor ? darkenColor(statusColor, 0.65) : '#78859b';
 
-  // Wall materials: sides = wall grey or darkened status, top = status colour or light
   const materials = useMemo(() => [
     new THREE.MeshLambertMaterial({ color: sideColor, transparent: true, opacity: 0.75 }),
     new THREE.MeshLambertMaterial({ color: topColor, transparent: true, opacity: 0.55 }),
   ], [topColor, sideColor]);
 
-  // Floor fill inside the room (flat coloured plane at ground level)
   const floorGeometry = useMemo(() => {
     const geom = obj.geometry;
     if (geom.type === 'rect') {
@@ -51,7 +48,10 @@ export default function RoomMesh({ obj, canvasW, canvasH, scale, state }: Props)
   const cx = ((geom.x ?? 0) + (geom.width ?? 0) / 2 - canvasW / 2) * scale;
   const cz = ((geom.y ?? 0) + (geom.height ?? 0) / 2 - canvasH / 2) * scale;
 
-  const showLabel = obj.object_type === 'room' && obj.label;
+  const isRoom = obj.object_type === 'room';
+  const pinColor = statusColor ?? '#94a3b8';
+  const pinHeight = height + 0.6;
+  const stemHeight = 0.4;
 
   return (
     <group>
@@ -63,24 +63,49 @@ export default function RoomMesh({ obj, canvasW, canvasH, scale, state }: Props)
       )}
       {/* Extruded walls */}
       <mesh geometry={geometry} material={materials} rotation={[-Math.PI / 2, 0, 0]} />
-      {/* Top edge highlight */}
-      {showLabel && (
-        <Html position={[cx, height + 0.12, cz]} center style={{ pointerEvents: 'none' }}>
-          <div style={{
-            background: 'rgba(255,255,255,0.9)',
-            color: '#334155',
-            padding: '2px 7px',
-            borderRadius: 3,
-            fontSize: 9,
-            fontWeight: 600,
-            fontFamily: '-apple-system, sans-serif',
-            whiteSpace: 'nowrap',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
-            borderLeft: `2px solid ${statusColor ?? '#94a3b8'}`,
-          }}>
-            {obj.label}
-          </div>
-        </Html>
+
+      {/* Pin with room name */}
+      {isRoom && obj.label && (
+        <group position={[cx, 0, cz]}>
+          {/* Pin stem */}
+          <mesh position={[0, height + stemHeight / 2, 0]}>
+            <cylinderGeometry args={[0.01, 0.01, stemHeight, 4]} />
+            <meshBasicMaterial color={pinColor} opacity={0.6} transparent />
+          </mesh>
+          {/* Pin dot */}
+          <mesh position={[0, pinHeight, 0]}>
+            <sphereGeometry args={[0.06, 10, 10]} />
+            <meshLambertMaterial color={pinColor} emissive={pinColor} emissiveIntensity={0.2} />
+          </mesh>
+          {/* Label */}
+          <Html position={[0, pinHeight + 0.15, 0]} center style={{ pointerEvents: 'none' }}>
+            <div style={{
+              background: 'rgba(255,255,255,0.94)',
+              color: '#1e293b',
+              padding: '3px 8px',
+              borderRadius: 4,
+              fontSize: 10,
+              fontWeight: 700,
+              fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 1px 6px rgba(0,0,0,0.12)',
+              borderBottom: `2px solid ${pinColor}`,
+              letterSpacing: '-0.2px',
+            }}>
+              {obj.label}
+              {state && (
+                <span style={{
+                  display: 'inline-block',
+                  width: 6, height: 6,
+                  borderRadius: '50%',
+                  background: pinColor,
+                  marginLeft: 5,
+                  verticalAlign: 'middle',
+                }} />
+              )}
+            </div>
+          </Html>
+        </group>
       )}
     </group>
   );
