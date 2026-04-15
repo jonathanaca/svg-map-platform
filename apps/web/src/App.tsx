@@ -6,6 +6,7 @@ import ProjectDetailPage from './pages/ProjectDetailPage.js';
 import EditorPage from './pages/EditorPage.js';
 import KioskPage from './pages/KioskPage.js';
 import ImportPage from './pages/ImportPage.js';
+import SettingsPage from './pages/SettingsPage.js';
 import UploadStep from './pages/UploadStep.js';
 import ConfigStep from './pages/ConfigStep.js';
 import RoomIdStep from './pages/RoomIdStep.js';
@@ -104,9 +105,12 @@ function LegacyWizard() {
 function StandardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="app">
-      <header className="app-header">
+      <header className="app-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
           <h1>Floor Plan Studio</h1>
+        </Link>
+        <Link to="/settings" style={{ textDecoration: 'none', color: 'var(--color-text-secondary)', fontSize: '0.82rem', fontWeight: 500 }}>
+          Settings
         </Link>
       </header>
       <main className="app-main">{children}</main>
@@ -127,6 +131,7 @@ export default function App() {
         <Route path="/" element={<StandardLayout><ProjectsPage /></StandardLayout>} />
         <Route path="/project/:id" element={<StandardLayout><ProjectDetailPage /></StandardLayout>} />
         <Route path="/import" element={<StandardLayout><ImportPage /></StandardLayout>} />
+        <Route path="/settings" element={<StandardLayout><SettingsPage /></StandardLayout>} />
         <Route path="/legacy" element={<StandardLayout><LegacyWizard /></StandardLayout>} />
       </Routes>
     </BrowserRouter>
