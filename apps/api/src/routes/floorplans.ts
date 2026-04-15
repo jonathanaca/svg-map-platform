@@ -121,31 +121,41 @@ router.post('/:id/upload-source', upload.single('source'), async (req, res) => {
     let height: number;
 
     if (mime === 'application/pdf' || origName.endsWith('.pdf')) {
-      // ── PDF: convert first page to PNG via Sharp (libvips with poppler) ──
+      // ── PDF: convert first page to PNG via pdftoppm (poppler-utils) ──
+      const { execSync } = await import('child_process');
+      const tmpPdf = path.join(FLOORPLAN_UPLOADS, `${id}-tmp.pdf`);
+      const tmpPngBase = path.join(FLOORPLAN_UPLOADS, `${id}-tmp`);
       try {
-        // Sharp can handle PDFs if libvips was built with poppler support
-        const info = await sharp(req.file.buffer, { density: 200, page: 0 })
-          .png()
-          .toFile(outputPath);
+        // Write PDF to temp file
+        fs.writeFileSync(tmpPdf, req.file.buffer);
+        // Convert first page to PNG at 200 DPI using pdftoppm
+        execSync(`pdftoppm -png -r 200 -f 1 -l 1 "${tmpPdf}" "${tmpPngBase}"`, { timeout: 30000 });
+        // pdftoppm outputs {base}-1.png or {base}-01.png
+        const candidates = [`${tmpPngBase}-1.png`, `${tmpPngBase}-01.png`, `${tmpPngBase}-001.png`];
+        const tmpPng = candidates.find(f => fs.existsSync(f));
+        if (!tmpPng) throw new Error('pdftoppm produced no output');
+        // Process with Sharp
+        const info = await sharp(tmpPng).png().toFile(outputPath);
         width = info.width;
         height = info.height;
-      } catch (sharpErr) {
+        // Cleanup temp files
+        try { fs.unlinkSync(tmpPdf); } catch {}
+        try { fs.unlinkSync(tmpPng); } catch {}
+      } catch (popplerErr) {
+        // Cleanup on error
+        try { fs.unlinkSync(tmpPdf); } catch {}
         // Fallback: try pdfjs-dist + node-canvas
         try {
           const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
           const { createCanvas } = await import('canvas');
-
           const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(req.file.buffer) });
           const pdfDoc = await loadingTask.promise;
           const page = await pdfDoc.getPage(1);
-
           const scale = 2;
           const viewport = page.getViewport({ scale });
           const canvas = createCanvas(viewport.width, viewport.height);
           const ctx = canvas.getContext('2d');
-
           await page.render({ canvasContext: ctx as any, viewport }).promise;
-
           const pngBuffer = canvas.toBuffer('image/png');
           const info = await sharp(pngBuffer).png().toFile(outputPath);
           width = info.width;
@@ -153,7 +163,7 @@ router.post('/:id/upload-source', upload.single('source'), async (req, res) => {
         } catch (fallbackErr) {
           res.status(400).json({
             error: 'PDF conversion failed. Please convert your PDF to PNG or JPEG first and upload that instead.',
-            details: [{ field: 'file', message: String(sharpErr) }],
+            details: [{ field: 'file', message: String(popplerErr) }],
           });
           return;
         }
