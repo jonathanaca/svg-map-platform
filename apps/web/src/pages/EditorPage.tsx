@@ -747,14 +747,28 @@ export default function EditorPage() {
         // First click — set start point
         setWallStart({ x: wx, y: wy });
       } else {
-        // Second click — create wall as a thin rect
+        // Second click — create wall as a polygon (4 corners)
         const dx = wx - wallStart.x;
         const dy = wy - wallStart.y;
         const len = Math.sqrt(dx * dx + dy * dy);
         if (len > 5) {
-          const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-          const cx = (wallStart.x + wx) / 2;
-          const cy = (wallStart.y + wy) / 2;
+          // Perpendicular offset for wall thickness
+          const half = wallThickness / 2;
+          const nx = -dy / len * half; // normal x
+          const ny = dx / len * half;  // normal y
+
+          const points = [
+            { x: wallStart.x + nx, y: wallStart.y + ny },
+            { x: wx + nx, y: wy + ny },
+            { x: wx - nx, y: wy - ny },
+            { x: wallStart.x - nx, y: wallStart.y - ny },
+          ];
+
+          const minX = Math.min(...points.map(p => p.x));
+          const minY = Math.min(...points.map(p => p.y));
+          const maxX = Math.max(...points.map(p => p.x));
+          const maxY = Math.max(...points.map(p => p.y));
+
           const existingWalls = objects.filter(o => o.object_type === 'decorative' && o.layer === 'walls').length;
 
           createObject(floorplanId, {
@@ -762,12 +776,12 @@ export default function EditorPage() {
             label: `Wall ${existingWalls + 1}`,
             svg_id: `wall-${String(existingWalls + 1).padStart(3, '0')}`,
             geometry: {
-              type: 'rect',
-              x: cx - len / 2,
-              y: cy - wallThickness / 2,
-              width: len,
-              height: wallThickness,
-              rotation: angle,
+              type: 'polygon',
+              points,
+              x: minX,
+              y: minY,
+              width: maxX - minX,
+              height: maxY - minY,
             },
             layer: 'walls',
             fill_color: '#374151',
