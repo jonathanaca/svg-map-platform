@@ -85,6 +85,18 @@ const FURNITURE_ASSETS: { id: string; label: string; icon: string; svg: string; 
   { id: 'bin', label: 'Waste Bin', icon: 'Bn', svg: '<path d="M6 6h12l-1 14H7L6 6z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 6h16" stroke="currentColor" stroke-width="1.5"/><path d="M9 3h6v3H9z" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M10 9v8M14 9v8" stroke="currentColor" stroke-width="1" opacity="0.4"/>', w: 8, h: 8, color: '#6b7280' },
 ];
 
+// Conjoined desk layouts — each defines a grid of desks placed as a group
+const DESK_LAYOUTS: { id: string; label: string; cols: number; rows: number; deskW: number; deskH: number; gap: number }[] = [
+  { id: 'row-2', label: 'Row of 2', cols: 2, rows: 1, deskW: 30, deskH: 20, gap: 1 },
+  { id: 'row-4', label: 'Row of 4', cols: 4, rows: 1, deskW: 30, deskH: 20, gap: 1 },
+  { id: 'row-6', label: 'Row of 6', cols: 6, rows: 1, deskW: 30, deskH: 20, gap: 1 },
+  { id: 'face-4', label: 'Face to Face (4)', cols: 2, rows: 2, deskW: 30, deskH: 20, gap: 1 },
+  { id: 'face-6', label: 'Face to Face (6)', cols: 3, rows: 2, deskW: 30, deskH: 20, gap: 1 },
+  { id: 'face-8', label: 'Face to Face (8)', cols: 4, rows: 2, deskW: 30, deskH: 20, gap: 1 },
+  { id: 'pod-6', label: 'Pod of 6', cols: 3, rows: 2, deskW: 28, deskH: 22, gap: 1 },
+  { id: 'bench-8', label: 'Bench (8)', cols: 8, rows: 1, deskW: 24, deskH: 18, gap: 0 },
+];
+
 function getHandlePos(h: Handle, x: number, y: number, w: number, h2: number): [number, number] {
   const mx = x + w / 2, my = y + h2 / 2;
   switch (h) {
@@ -239,6 +251,10 @@ export default function EditorPage() {
   // Furniture placement state
   const [placingFurniture, setPlacingFurniture] = useState<string | null>(null);
   const [showFurniturePicker, setShowFurniturePicker] = useState(false);
+
+  // Desk layout placement state
+  const [placingDeskLayout, setPlacingDeskLayout] = useState<string | null>(null);
+  const [showDeskLayoutPicker, setShowDeskLayoutPicker] = useState(false);
 
   // Bottom panel tab state (for label mode)
   const [bottomTab, setBottomTab] = useState<'labelling' | 'validation'>('labelling');
@@ -609,6 +625,53 @@ export default function EditorPage() {
         setDirty(true);
       }).catch(console.error);
 
+      e.preventDefault();
+      return;
+    }
+
+    // ── Desk layout placement mode ──
+    if (placingDeskLayout && floorplanId) {
+      const layout = DESK_LAYOUTS.find(l => l.id === placingDeskLayout);
+      if (layout) {
+        const groupId = `deskgroup-${Date.now()}`;
+        const totalW = layout.cols * layout.deskW + (layout.cols - 1) * layout.gap;
+        const totalH = layout.rows * layout.deskH + (layout.rows - 1) * layout.gap;
+        const startX = x - totalW / 2;
+        const startY = y - totalH / 2;
+        const existingDesks = objects.filter(o => o.object_type === 'desk').length;
+        const newDesks = [];
+
+        for (let row = 0; row < layout.rows; row++) {
+          for (let col = 0; col < layout.cols; col++) {
+            const idx = existingDesks + row * layout.cols + col + 1;
+            const dx = startX + col * (layout.deskW + layout.gap);
+            const dy = startY + row * (layout.deskH + layout.gap);
+            newDesks.push({
+              object_type: 'desk' as const,
+              label: `Desk ${idx}`,
+              svg_id: `desk-${String(idx).padStart(3, '0')}`,
+              geometry: { type: 'rect' as const, x: dx, y: dy, width: layout.deskW, height: layout.deskH },
+              layer: 'desks',
+              fill_color: '#2563eb55',
+              stroke_color: '#2563eb',
+              opacity: 1,
+              visible: true,
+              locked: false,
+              z_index: objects.length + row * layout.cols + col,
+              metadata: { furnitureType: 'desk-single', groupId },
+              group_id: groupId,
+            });
+          }
+        }
+
+        // Bulk create all desks
+        Promise.all(newDesks.map(d => createObject(floorplanId, d)))
+          .then((created) => {
+            setObjects(prev => [...prev, ...created]);
+            setDirty(true);
+          })
+          .catch(console.error);
+      }
       e.preventDefault();
       return;
     }
@@ -1230,6 +1293,85 @@ export default function EditorPage() {
                 />
               </div>
             )}
+            {/* Desk Layouts picker */}
+            <div style={{ position: 'relative' }} data-dropdown>
+              <button
+                className={`dc-tool-btn ${placingDeskLayout ? 'dc-tool-btn--active' : ''}`}
+                onClick={() => { setShowDeskLayoutPicker(!showDeskLayoutPicker); setShowFurniturePicker(false); setShowAmenityPicker(false); }}
+                title="Place conjoined desk layouts"
+                style={placingDeskLayout ? { background: '#eff6ff', color: '#2563eb', borderColor: '#2563eb' } : undefined}
+              >
+                <span className="dc-tool-label">{placingDeskLayout ? DESK_LAYOUTS.find(l => l.id === placingDeskLayout)?.label : 'Desk Layouts'}</span>
+              </button>
+              {showDeskLayoutPicker && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, zIndex: 100,
+                  background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+                  borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 4,
+                  minWidth: 200,
+                }}>
+                  <div style={{ padding: '4px 8px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Rows</div>
+                  {DESK_LAYOUTS.filter(l => l.rows === 1).map(l => (
+                    <button
+                      key={l.id}
+                      onClick={() => { setPlacingDeskLayout(l.id); setShowDeskLayoutPicker(false); setPlacingFurniture(null); setPlacingAmenity(null); setActiveTool('select'); }}
+                      style={{
+                        display: 'block', width: '100%', padding: '6px 10px', border: 'none', borderRadius: 4,
+                        background: placingDeskLayout === l.id ? '#eff6ff' : 'transparent',
+                        cursor: 'pointer', fontSize: '0.75rem', fontWeight: 500, textAlign: 'left',
+                        color: 'var(--color-text)',
+                      }}
+                    >
+                      <span style={{ display: 'inline-flex', gap: 1, marginRight: 8, verticalAlign: 'middle' }}>
+                        {Array.from({ length: l.cols }).map((_, i) => (
+                          <span key={i} style={{ width: 8, height: 6, background: '#2563eb', borderRadius: 1, display: 'inline-block' }} />
+                        ))}
+                      </span>
+                      {l.label}
+                    </button>
+                  ))}
+                  <div style={{ padding: '4px 8px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderTop: '1px solid var(--color-border)', marginTop: 2 }}>Face to Face</div>
+                  {DESK_LAYOUTS.filter(l => l.rows === 2).map(l => (
+                    <button
+                      key={l.id}
+                      onClick={() => { setPlacingDeskLayout(l.id); setShowDeskLayoutPicker(false); setPlacingFurniture(null); setPlacingAmenity(null); setActiveTool('select'); }}
+                      style={{
+                        display: 'block', width: '100%', padding: '6px 10px', border: 'none', borderRadius: 4,
+                        background: placingDeskLayout === l.id ? '#eff6ff' : 'transparent',
+                        cursor: 'pointer', fontSize: '0.75rem', fontWeight: 500, textAlign: 'left',
+                        color: 'var(--color-text)',
+                      }}
+                    >
+                      <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 1, marginRight: 8, verticalAlign: 'middle' }}>
+                        <span style={{ display: 'flex', gap: 1 }}>
+                          {Array.from({ length: l.cols }).map((_, i) => (
+                            <span key={i} style={{ width: 8, height: 6, background: '#2563eb', borderRadius: 1 }} />
+                          ))}
+                        </span>
+                        <span style={{ display: 'flex', gap: 1 }}>
+                          {Array.from({ length: l.cols }).map((_, i) => (
+                            <span key={i} style={{ width: 8, height: 6, background: '#93c5fd', borderRadius: 1 }} />
+                          ))}
+                        </span>
+                      </span>
+                      {l.label}
+                    </button>
+                  ))}
+                  {placingDeskLayout && (
+                    <button
+                      onClick={() => { setPlacingDeskLayout(null); setShowDeskLayoutPicker(false); }}
+                      style={{
+                        display: 'block', width: '100%', padding: '6px 10px', border: 'none', borderRadius: 4,
+                        background: '#fef2f2', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600,
+                        color: '#dc2626', textAlign: 'center', marginTop: 4,
+                      }}
+                    >
+                      Stop Placing
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             <button
               className={`dc-tool-btn ${drawingOutline ? 'dc-tool-btn--active' : ''}`}
               onClick={startOutlineDrawing}
