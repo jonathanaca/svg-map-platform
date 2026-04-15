@@ -121,27 +121,43 @@ router.post('/:id/upload-source', upload.single('source'), async (req, res) => {
     let height: number;
 
     if (mime === 'application/pdf' || origName.endsWith('.pdf')) {
-      // ── PDF: render first page to PNG via pdfjs-dist + node-canvas ──
-      const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
-      const { createCanvas } = await import('canvas');
+      // ── PDF: convert first page to PNG via Sharp (libvips with poppler) ──
+      try {
+        // Sharp can handle PDFs if libvips was built with poppler support
+        const info = await sharp(req.file.buffer, { density: 200, page: 0 })
+          .png()
+          .toFile(outputPath);
+        width = info.width;
+        height = info.height;
+      } catch (sharpErr) {
+        // Fallback: try pdfjs-dist + node-canvas
+        try {
+          const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+          const { createCanvas } = await import('canvas');
 
-      const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(req.file.buffer) });
-      const pdfDoc = await loadingTask.promise;
-      const page = await pdfDoc.getPage(1);
+          const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(req.file.buffer) });
+          const pdfDoc = await loadingTask.promise;
+          const page = await pdfDoc.getPage(1);
 
-      // Render at 2x scale for quality
-      const scale = 2;
-      const viewport = page.getViewport({ scale });
-      const canvas = createCanvas(viewport.width, viewport.height);
-      const ctx = canvas.getContext('2d');
+          const scale = 2;
+          const viewport = page.getViewport({ scale });
+          const canvas = createCanvas(viewport.width, viewport.height);
+          const ctx = canvas.getContext('2d');
 
-      await page.render({ canvasContext: ctx as any, viewport }).promise;
+          await page.render({ canvasContext: ctx as any, viewport }).promise;
 
-      // Convert canvas to PNG via Sharp
-      const pngBuffer = canvas.toBuffer('image/png');
-      const info = await sharp(pngBuffer).png().toFile(outputPath);
-      width = info.width;
-      height = info.height;
+          const pngBuffer = canvas.toBuffer('image/png');
+          const info = await sharp(pngBuffer).png().toFile(outputPath);
+          width = info.width;
+          height = info.height;
+        } catch (fallbackErr) {
+          res.status(400).json({
+            error: 'PDF conversion failed. Please convert your PDF to PNG or JPEG first and upload that instead.',
+            details: [{ field: 'file', message: String(sharpErr) }],
+          });
+          return;
+        }
+      }
 
     } else if (mime === 'image/svg+xml' || origName.endsWith('.svg')) {
       // ── SVG: save as-is and also render to PNG for canvas background ──
