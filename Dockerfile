@@ -1,5 +1,19 @@
 FROM node:20-slim
 
+# Install poppler-utils for PDF rendering, build tools for native modules
+RUN apt-get update && apt-get install -y \
+    poppler-utils \
+    libpoppler-glib-dev \
+    build-essential \
+    python3 \
+    pkg-config \
+    libcairo2-dev \
+    libjpeg-dev \
+    libpango1.0-dev \
+    libgif-dev \
+    librsvg2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY package.json package-lock.json ./
