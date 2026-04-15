@@ -785,11 +785,11 @@ export default function EditorPage() {
         }
       }
 
-      // Find object under cursor (supports rect, circle, polygon)
-      const visibleLayerIds = new Set(layers.filter((l) => l.visible).map((l) => l.id));
+      // Find object under cursor — only on visible, unlocked layers
+      const selectableLayerIds = new Set(layers.filter((l) => l.visible && !l.locked).map((l) => l.id));
       const hits: { id: string; area: number }[] = [];
       for (const obj of objects) {
-        if (!obj.visible || !visibleLayerIds.has(obj.layer)) continue;
+        if (!obj.visible || !selectableLayerIds.has(obj.layer)) continue;
         const geom = obj.geometry;
         if (geom.type === 'rect') {
           const rx = geom.x ?? 0, ry = geom.y ?? 0;
@@ -816,7 +816,10 @@ export default function EditorPage() {
         const hitId = hits[0].id;
         const hitObj = objects.find((o) => o.id === hitId)!;
         setSelectedObjectId(hitId);
-        setDragging({ objectId: hitId, offsetX: x - (hitObj.geometry.x ?? 0), offsetY: y - (hitObj.geometry.y ?? 0) });
+        // Only allow dragging if the object's layer is not locked and object is not locked
+        if (!hitObj.locked) {
+          setDragging({ objectId: hitId, offsetX: x - (hitObj.geometry.x ?? 0), offsetY: y - (hitObj.geometry.y ?? 0) });
+        }
         e.preventDefault();
         return;
       }
@@ -833,7 +836,7 @@ export default function EditorPage() {
     }
 
     // ── Pen tool: click to create object at point ──
-    if (activeTool === 'pen' && floorplanId && editorMode === 'design') {
+    if (activeTool === 'pen' && floorplanId && editorMode === 'design' && !layers.find(l => l.id === activeLayerId)?.locked) {
       const objectType = layerToObjectType(activeLayerId);
       const existingCount = objects.filter((o) => o.object_type === objectType).length;
       const typeName = objectType.charAt(0).toUpperCase() + objectType.slice(1);
@@ -944,7 +947,8 @@ export default function EditorPage() {
       const rw = Math.abs(rectDraw.currentX - rectDraw.startX);
       const rh = Math.abs(rectDraw.currentY - rectDraw.startY);
 
-      if (rw > 10 && rh > 10) {
+      const activeLayerObj = layers.find(l => l.id === activeLayerId);
+      if (rw > 10 && rh > 10 && activeLayerObj && !activeLayerObj.locked) {
         const objectType = layerToObjectType(activeLayerId);
         const existingCount = objects.filter((o) => o.object_type === objectType).length;
         const typeName = objectType.charAt(0).toUpperCase() + objectType.slice(1);
