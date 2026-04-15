@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import type { AvailabilityState, MapObject, Floorplan } from '@svg-map/types';
 import { useKioskData } from '../hooks/useKioskData.js';
@@ -65,6 +65,17 @@ export default function KioskPage() {
     ? [...project.floorplans].sort((a, b) => a.floor_index - b.floor_index)
     : [];
 
+  // Search
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showShare, setShowShare] = useState(false);
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase();
+    return objects
+      .filter(o => (o.object_type === 'room' || o.object_type === 'desk') && o.label?.toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [searchQuery, objects]);
+
   if (isLoading && !floorplan) {
     return (
       <div className="kiosk-loading">
@@ -82,7 +93,45 @@ export default function KioskPage() {
           <div className="kiosk-building-name">{project?.building_name || project?.name || 'Building'}</div>
           <div className="kiosk-floor-name">{floorplan?.floor_name || 'Level 1'}</div>
         </div>
+        <div className="kiosk-header-center">
+          <div className="kiosk-search-wrapper">
+            <input
+              type="text"
+              className="kiosk-search"
+              placeholder="Search rooms & desks..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button className="kiosk-search-clear" onClick={() => setSearchQuery('')}>&times;</button>
+            )}
+            {searchResults.length > 0 && (
+              <div className="kiosk-search-results">
+                {searchResults.map(r => (
+                  <div key={r.id} className="kiosk-search-result">
+                    <span className="kiosk-search-dot" style={{ background: availability[r.id] ? STATE_COLORS[availability[r.id]] : '#7d8590' }} />
+                    <span className="kiosk-search-label">{r.label}</span>
+                    <span className="kiosk-search-type">{r.object_type}</span>
+                    {availability[r.id] && (
+                      <span className="kiosk-search-state">{availability[r.id].replace(/-/g, ' ')}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {searchQuery && searchResults.length === 0 && (
+              <div className="kiosk-search-results">
+                <div className="kiosk-search-empty">No results found</div>
+              </div>
+            )}
+          </div>
+        </div>
         <div className="kiosk-header-right">
+          <button
+            className="kiosk-header-btn"
+            onClick={() => setShowShare(!showShare)}
+            title="Share"
+          >Share</button>
           <LiveClock />
         </div>
       </header>
@@ -115,6 +164,40 @@ export default function KioskPage() {
             objects={objects}
             availability={availability}
           />
+        )}
+
+        {/* Share panel overlay */}
+        {showShare && (
+          <div className="kiosk-share-panel">
+            <div className="kiosk-share-header">
+              <span>Share Map</span>
+              <button onClick={() => setShowShare(false)} className="kiosk-share-close">&times;</button>
+            </div>
+            <button
+              className="kiosk-share-btn"
+              onClick={() => { navigator.clipboard.writeText(window.location.href); }}
+            >
+              Copy Link
+            </button>
+            <button
+              className="kiosk-share-btn"
+              onClick={() => {
+                const embed = `<iframe src="${window.location.href}" width="100%" height="600" frameborder="0"></iframe>`;
+                navigator.clipboard.writeText(embed);
+              }}
+            >
+              Copy Embed Code
+            </button>
+            <div className="kiosk-share-qr">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(window.location.href)}&bgcolor=161b22&color=e6edf3`}
+                alt="QR Code"
+                width={120}
+                height={120}
+              />
+              <span className="kiosk-share-qr-label">Scan to view on mobile</span>
+            </div>
+          </div>
         )}
       </main>
 
