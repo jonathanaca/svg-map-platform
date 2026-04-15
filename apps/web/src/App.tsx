@@ -121,6 +121,7 @@ export default function App() {
         {/* Full-screen pages, no wrapper */}
         <Route path="/editor/:floorplanId" element={<EditorPage />} />
         <Route path="/kiosk/:projectId" element={<KioskPage />} />
+        <Route path="/kiosk/:projectId/:floorplanId" element={<KioskPage />} />
 
         {/* Standard pages */}
         <Route path="/" element={<StandardLayout><ProjectsPage /></StandardLayout>} />

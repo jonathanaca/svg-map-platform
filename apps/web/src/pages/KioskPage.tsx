@@ -39,8 +39,8 @@ function StatCard({ value, total, label, color }: StatCardProps) {
 }
 
 export default function KioskPage() {
-  const { projectId } = useParams<{ projectId: string }>();
-  const [activeFloorplanId, setActiveFloorplanId] = useState<string | null>(null);
+  const { projectId, floorplanId: urlFloorplanId } = useParams<{ projectId: string; floorplanId?: string }>();
+  const [activeFloorplanId, setActiveFloorplanId] = useState<string | null>(urlFloorplanId ?? null);
   const { project, floorplan, objects, isLoading } = useKioskData(projectId!, activeFloorplanId);
   const availability = useAvailabilityPolling(objects);
 

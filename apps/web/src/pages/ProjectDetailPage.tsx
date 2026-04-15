@@ -284,6 +284,13 @@ export default function ProjectDetailPage() {
                         Delete
                       </button>
                       <button
+                        className="btn btn-sm"
+                        style={{ background: '#f1f5f9', color: '#3b82f6', border: '1px solid #e2e8f0', fontWeight: 600 }}
+                        onClick={() => navigate(`/kiosk/${project.id}/${fp.id}`)}
+                      >
+                        3D View
+                      </button>
+                      <button
                         className="btn btn-primary btn-sm"
                         onClick={() => navigate(`/editor/${fp.id}`)}
                       >
