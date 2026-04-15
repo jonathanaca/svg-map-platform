@@ -69,16 +69,13 @@ export function exportIsometricSvg(
   canvasH: number,
   bgDataUri?: string,
 ): string {
-  // The isometric view is the 2D map with a skew transform applied
-  // We add depth/extrusion effects on bookable spaces
-  const pad = 100;
-  const viewW = canvasW + pad * 2;
-  const viewH = canvasH + pad * 2;
+  // Use a generous viewport so the rotated/skewed map fits entirely
+  const maxDim = Math.max(canvasW, canvasH);
+  const viewW = maxDim * 2.2;
+  const viewH = maxDim * 1.6;
 
-  // Isometric transform matrix: skewX(-30deg) scaleY(0.86)
-  // This tilts the flat map into an isometric-ish perspective
-  // Cisco Spaces-style angle: slight tilt forward with perspective feel
-  const isoTransform = `translate(${viewW * 0.5}, ${viewH * 0.1}) scale(0.7, 0.55) rotate(-30) skewX(10)`;
+  // Cisco Spaces-style angle: tilt with perspective feel, centered in viewport
+  const isoTransform = `translate(${viewW * 0.5}, ${viewH * 0.45}) scale(0.65, 0.5) rotate(-30) translate(${-canvasW / 2}, ${-canvasH / 2})`;
 
   let svg = `<?xml version="1.0" encoding="UTF-8"?>\n`;
   svg += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewW} ${viewH}" width="${viewW}" height="${viewH}" style="background:#0f1419">\n`;
