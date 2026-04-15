@@ -279,8 +279,10 @@ export default function EditorPage() {
   const [editorSearchQuery, setEditorSearchQuery] = useState('');
   const [editorSearchOpen, setEditorSearchOpen] = useState(false);
 
-  // Wall drawing state
-  const [wallStart, setWallStart] = useState<{ x: number; y: number } | null>(null);
+  // Wall drawing state — use ref for wallStart to avoid stale closure in useCallback
+  const wallStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [wallStart, setWallStart_] = useState<{ x: number; y: number } | null>(null);
+  const setWallStart = (v: { x: number; y: number } | null) => { wallStartRef.current = v; setWallStart_(v); };
   const [wallPreview, setWallPreview] = useState<{ x: number; y: number } | null>(null);
   const [wallThickness, setWallThickness] = useState(6);
 
@@ -730,11 +732,11 @@ export default function EditorPage() {
     if (activeTool === 'wall' && floorplanId) {
       let wx = x, wy = y;
       // Shift = constrain to horizontal or vertical
-      if (e.shiftKey && wallStart) {
-        const dx = Math.abs(x - wallStart.x);
-        const dy = Math.abs(y - wallStart.y);
-        if (dx > dy) wy = wallStart.y;
-        else wx = wallStart.x;
+      if (e.shiftKey && wallStartRef.current) {
+        const dx = Math.abs(x - wallStartRef.current.x);
+        const dy = Math.abs(y - wallStartRef.current.y);
+        if (dx > dy) wy = wallStartRef.current.y;
+        else wx = wallStartRef.current.x;
       }
       // Snap to grid
       if (editorState.snapEnabled && editorState.gridSize) {
@@ -743,25 +745,26 @@ export default function EditorPage() {
         wy = Math.round(wy / gs) * gs;
       }
 
-      if (!wallStart) {
+      if (!wallStartRef.current) {
         // First click — set start point
         setWallStart({ x: wx, y: wy });
       } else {
         // Second click — create wall as a polygon (4 corners)
-        const dx = wx - wallStart.x;
-        const dy = wy - wallStart.y;
+        const ws = wallStartRef.current!;
+        const dx = wx - ws.x;
+        const dy = wy - ws.y;
         const len = Math.sqrt(dx * dx + dy * dy);
         if (len > 5) {
           // Perpendicular offset for wall thickness
           const half = wallThickness / 2;
-          const nx = -dy / len * half; // normal x
-          const ny = dx / len * half;  // normal y
+          const nx = -dy / len * half;
+          const ny = dx / len * half;
 
           const points = [
-            { x: wallStart.x + nx, y: wallStart.y + ny },
+            { x: ws.x + nx, y: ws.y + ny },
             { x: wx + nx, y: wy + ny },
             { x: wx - nx, y: wy - ny },
-            { x: wallStart.x - nx, y: wallStart.y - ny },
+            { x: ws.x - nx, y: ws.y - ny },
           ];
 
           const minX = Math.min(...points.map(p => p.x));
@@ -795,8 +798,8 @@ export default function EditorPage() {
             setDirty(true);
           }).catch(console.error);
         }
-        // Reset — click again to start next wall
-        setWallStart(null);
+        // Chain — next wall starts from this end point
+        setWallStart({ x: wx, y: wy });
         setWallPreview(null);
       }
       e.preventDefault();
@@ -994,7 +997,7 @@ export default function EditorPage() {
       e.preventDefault();
       return;
     }
-  }, [activeTool, drawingOutline, outlinePoints, selectedObjectId, objects, layers, floorplanId, editorMode, activeLayerId, imageDims, placeWidth, placeHeight, placingDeskLayout, wallStart, wallThickness]);
+  }, [activeTool, drawingOutline, outlinePoints, selectedObjectId, objects, layers, floorplanId, editorMode, activeLayerId, imageDims, placeWidth, placeHeight, placingDeskLayout, wallThickness]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     const { x, y } = toSvgCoords(e.clientX, e.clientY);
