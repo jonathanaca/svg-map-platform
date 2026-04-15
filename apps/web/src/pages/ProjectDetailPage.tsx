@@ -113,7 +113,16 @@ export default function ProjectDetailPage() {
               </p>
             )}
           </div>
-          <StatusBadge status={project.status} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              className="btn btn-sm"
+              style={{ background: '#161b22', color: '#58a6ff', border: '1px solid #30363d', fontWeight: 600 }}
+              onClick={() => navigate(`/kiosk/${project.id}`)}
+            >
+              View Kiosk
+            </button>
+            <StatusBadge status={project.status} />
+          </div>
         </div>
       </div>
 

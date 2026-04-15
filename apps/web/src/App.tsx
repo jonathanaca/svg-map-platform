@@ -4,6 +4,7 @@ import type { BrandConfig, ImageMetadata, AvailabilityState } from '@svg-map/typ
 import ProjectsPage from './pages/ProjectsPage.js';
 import ProjectDetailPage from './pages/ProjectDetailPage.js';
 import EditorPage from './pages/EditorPage.js';
+import KioskPage from './pages/KioskPage.js';
 import ImportPage from './pages/ImportPage.js';
 import UploadStep from './pages/UploadStep.js';
 import ConfigStep from './pages/ConfigStep.js';
@@ -117,8 +118,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Editor: full-screen, no wrapper */}
+        {/* Full-screen pages, no wrapper */}
         <Route path="/editor/:floorplanId" element={<EditorPage />} />
+        <Route path="/kiosk/:projectId" element={<KioskPage />} />
 
         {/* Standard pages */}
         <Route path="/" element={<StandardLayout><ProjectsPage /></StandardLayout>} />

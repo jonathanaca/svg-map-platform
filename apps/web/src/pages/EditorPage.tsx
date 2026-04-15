@@ -207,6 +207,10 @@ export default function EditorPage() {
 
   // Layer state
   const [layers, setLayers] = useState<EditorLayer[]>(DEFAULT_LAYERS);
+  // Place tool size state
+  const [placeWidth, setPlaceWidth] = useState(80);
+  const [placeHeight, setPlaceHeight] = useState(60);
+
   const [activeLayerId, setActiveLayerId_] = useState<string>('rooms');
   const setActiveLayerId = useCallback((id: string) => {
     setActiveLayerId_(id);
@@ -218,10 +222,6 @@ export default function EditorPage() {
       setPlaceHeight(60);
     }
   }, []);
-
-  // Place tool size state
-  const [placeWidth, setPlaceWidth] = useState(80);
-  const [placeHeight, setPlaceHeight] = useState(60);
 
   // Quote requirements popup
   const [quoteReqs, setQuoteReqs] = useState<{ rooms: number; desks: number; lockers: number; carspaces: number } | null>(null);
@@ -1030,6 +1030,7 @@ export default function EditorPage() {
   const selectedObjects = selectedObject ? [selectedObject] : [];
 
   const visibleLayerIds = new Set(layers.filter((l) => l.visible).map((l) => l.id));
+  const layerOpacity = new Map(layers.map(l => [l.id, l.opacity]));
   const visibleObjects = objects.filter(
     (o) => o.visible && visibleLayerIds.has(o.layer),
   );
@@ -1593,6 +1594,7 @@ export default function EditorPage() {
               const geom = obj.geometry;
               if (geom.type !== 'rect' && geom.type !== 'circle' && geom.type !== 'polygon' && geom.type !== 'path') return null;
 
+              const effectiveOpacity = obj.opacity * (layerOpacity.get(obj.layer) ?? 1);
               const isSelected = obj.id === selectedObjectId;
               const availColor =
                 availabilityEnabled && availabilityStates[obj.id]
@@ -1616,7 +1618,7 @@ export default function EditorPage() {
                 const furnitureAsset = furnitureType ? FURNITURE_ASSETS.find(a => a.id === furnitureType) : null;
 
                 return (
-                  <g key={obj.id} data-object-id={obj.id} opacity={obj.opacity}
+                  <g key={obj.id} data-object-id={obj.id} opacity={effectiveOpacity}
                     onClick={(ev) => {
                       if (editorMode === 'preview' && (obj.object_type === 'room' || obj.object_type === 'desk')) {
                         ev.stopPropagation();
@@ -1715,7 +1717,7 @@ export default function EditorPage() {
                   <g key={obj.id} data-object-id={obj.id} style={{ cursor: activeTool === 'select' ? 'pointer' : 'crosshair' }}
                     onClick={(ev) => { if (activeTool === 'select') { ev.stopPropagation(); setSelectedObjectId(obj.id); } }}>
                     <circle cx={cx} cy={cy} r={cr}
-                      fill={fillColor} stroke={strokeColor} strokeWidth={sw} opacity={obj.opacity} />
+                      fill={fillColor} stroke={strokeColor} strokeWidth={sw} opacity={effectiveOpacity} />
                     {amenityInfo && (
                       <g transform={`translate(${cx - cr * 0.6}, ${cy - cr * 0.6}) scale(${cr * 1.2 / 24})`}
                         style={{ pointerEvents: 'none' }}
@@ -1738,7 +1740,7 @@ export default function EditorPage() {
                   <polygon
                     key={obj.id} points={pts}
                     fill={fillColor} stroke={strokeColor} strokeWidth={sw}
-                    opacity={obj.opacity}
+                    opacity={effectiveOpacity}
                     style={{ cursor: 'pointer' }}
                   />
                 );
@@ -1750,7 +1752,7 @@ export default function EditorPage() {
                     key={obj.id} d={geom.d}
                     fill={availColor ?? obj.fill_color ?? 'none'}
                     stroke={strokeColor} strokeWidth={sw}
-                    opacity={obj.opacity}
+                    opacity={effectiveOpacity}
                     style={{ cursor: 'pointer' }}
                   />
                 );
