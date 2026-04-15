@@ -785,35 +785,39 @@ export default function EditorPage() {
         }
       }
 
-      // Find object under cursor — only on visible, unlocked layers
+      // Find object under cursor — prioritize active layer, then fall through to other unlocked layers
       const selectableLayerIds = new Set(layers.filter((l) => l.visible && !l.locked).map((l) => l.id));
-      const hits: { id: string; area: number }[] = [];
+      const hits: { id: string; area: number; onActiveLayer: boolean }[] = [];
       for (const obj of objects) {
         if (!obj.visible || !selectableLayerIds.has(obj.layer)) continue;
         const geom = obj.geometry;
+        const isActive = obj.layer === activeLayerId;
         if (geom.type === 'rect') {
           const rx = geom.x ?? 0, ry = geom.y ?? 0;
           const rw = geom.width ?? 100, rh = geom.height ?? 100;
           if (x >= rx && x <= rx + rw && y >= ry && y <= ry + rh) {
-            hits.push({ id: obj.id, area: rw * rh });
+            hits.push({ id: obj.id, area: rw * rh, onActiveLayer: isActive });
           }
         } else if (geom.type === 'circle') {
           const cx = geom.x ?? 0, cy = geom.y ?? 0, cr = geom.r ?? 12;
           const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
           if (dist <= cr + 5) {
-            hits.push({ id: obj.id, area: cr * cr * Math.PI });
+            hits.push({ id: obj.id, area: cr * cr * Math.PI, onActiveLayer: isActive });
           }
         } else if (geom.type === 'polygon' && geom.points) {
           const bx = geom.x ?? 0, by = geom.y ?? 0;
           const bw = geom.width ?? 100, bh = geom.height ?? 100;
           if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
-            hits.push({ id: obj.id, area: bw * bh });
+            hits.push({ id: obj.id, area: bw * bh, onActiveLayer: isActive });
           }
         }
       }
       if (hits.length > 0) {
-        hits.sort((a, b) => a.area - b.area);
-        const hitId = hits[0].id;
+        // Prefer objects on the active layer, then smallest area
+        const activeHits = hits.filter(h => h.onActiveLayer);
+        const bestHits = activeHits.length > 0 ? activeHits : hits;
+        bestHits.sort((a, b) => a.area - b.area);
+        const hitId = bestHits[0].id;
         const hitObj = objects.find((o) => o.id === hitId)!;
         setSelectedObjectId(hitId);
         // Only allow dragging if the object's layer is not locked and object is not locked
