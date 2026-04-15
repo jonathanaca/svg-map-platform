@@ -95,6 +95,7 @@ const DESK_LAYOUTS: { id: string; label: string; cols: number; rows: number; des
   { id: 'face-8', label: 'Face to Face (8)', cols: 4, rows: 2, deskW: 30, deskH: 20, gap: 1 },
   { id: 'pod-6', label: 'Pod of 6', cols: 3, rows: 2, deskW: 28, deskH: 22, gap: 1 },
   { id: 'bench-8', label: 'Bench (8)', cols: 8, rows: 1, deskW: 24, deskH: 18, gap: 0 },
+  { id: 'vface-6', label: 'Vertical Face to Face (6)', cols: 2, rows: 3, deskW: 30, deskH: 20, gap: 1 },
 ];
 
 function getHandlePos(h: Handle, x: number, y: number, w: number, h2: number): [number, number] {
