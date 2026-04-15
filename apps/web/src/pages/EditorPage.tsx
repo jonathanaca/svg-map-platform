@@ -19,6 +19,7 @@ import LayerPanel, { DEFAULT_LAYERS } from '../components/LayerPanel.js';
 import ValidationPanel from '../components/ValidationPanel.js';
 import LabellingPanel from '../components/LabellingPanel.js';
 import AvailabilityPreview, { getAvailabilityColor, STATE_COLORS, ALL_STATES, getStatesForType, cycleState } from '../components/AvailabilityPreview.js';
+import { exportIsometricSvg } from '../lib/isometricSvgExport.js';
 import {
   getPlaceOSConfig,
   setPlaceOSConfig,
@@ -2624,6 +2625,50 @@ export default function EditorPage() {
                       }}
                     >
                       Preview Export
+                    </button>
+
+                    <button
+                      onClick={async () => {
+                        if (!floorplan) return;
+                        const w = canvasW;
+                        const h = canvasH;
+
+                        let bgDataUri = '';
+                        try {
+                          const bgResp = await fetch(`/api/floorplans/${floorplan.id}/source-preview`);
+                          if (bgResp.ok) {
+                            const ct = bgResp.headers.get('content-type') || '';
+                            if (ct.includes('svg')) {
+                              bgDataUri = `data:image/svg+xml;base64,${btoa(await bgResp.text())}`;
+                            } else {
+                              const blob = await bgResp.blob();
+                              bgDataUri = await new Promise<string>((resolve) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result as string);
+                                reader.readAsDataURL(blob);
+                              });
+                            }
+                          }
+                        } catch { /* continue */ }
+
+                        const svg = exportIsometricSvg(objects, w, h, bgDataUri);
+                        const blob = new Blob([svg], { type: 'image/svg+xml' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${floorplan.floor_name?.replace(/\s+/g, '-') || 'floorplan'}-isometric-placeos.svg`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      disabled={!allPass}
+                      style={{
+                        width: '100%', padding: '10px 16px', border: '2px solid #3b82f6', borderRadius: 8,
+                        background: 'transparent', color: '#3b82f6', fontWeight: 600,
+                        fontSize: '0.82rem', cursor: allPass ? 'pointer' : 'not-allowed', marginBottom: 8,
+                        opacity: allPass ? 1 : 0.5,
+                      }}
+                    >
+                      Export Isometric SVG
                     </button>
 
                     {!allPass && (

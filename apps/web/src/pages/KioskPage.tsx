@@ -5,6 +5,7 @@ import { useKioskData } from '../hooks/useKioskData.js';
 import { useAvailabilityPolling } from '../hooks/useAvailabilityPolling.js';
 import { STATE_COLORS, ALL_STATES } from '../lib/availabilityColors.js';
 import IsometricScene from '../components/kiosk/IsometricScene.js';
+import { exportIsometricSvg } from '../lib/isometricSvgExport.js';
 import './KioskPage.css';
 
 function LiveClock() {
@@ -130,8 +131,46 @@ export default function KioskPage() {
             </button>
           ))}
         </div>
-        <div className="kiosk-brand">
-          Floor Plan Studio
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={async () => {
+              if (!floorplan) return;
+              const w = floorplan.canvas_width ?? 1000;
+              const h = floorplan.canvas_height ?? 800;
+
+              let bgDataUri = '';
+              try {
+                const bgResp = await fetch(`/api/floorplans/${floorplan.id}/source-preview`);
+                if (bgResp.ok) {
+                  const ct = bgResp.headers.get('content-type') || '';
+                  if (ct.includes('svg')) {
+                    bgDataUri = `data:image/svg+xml;base64,${btoa(await bgResp.text())}`;
+                  } else {
+                    const blob = await bgResp.blob();
+                    bgDataUri = await new Promise<string>((resolve) => {
+                      const reader = new FileReader();
+                      reader.onloadend = () => resolve(reader.result as string);
+                      reader.readAsDataURL(blob);
+                    });
+                  }
+                }
+              } catch { /* continue */ }
+
+              const svg = exportIsometricSvg(objects, w, h, bgDataUri);
+              const blob = new Blob([svg], { type: 'image/svg+xml' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `${floorplan.floor_name?.replace(/\s+/g, '-') || 'floorplan'}-isometric.svg`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="kiosk-floor-tab"
+            style={{ borderBottom: 'none' }}
+          >
+            Export Isometric SVG
+          </button>
+          <span className="kiosk-brand">Floor Plan Studio</span>
         </div>
       </footer>
     </div>
