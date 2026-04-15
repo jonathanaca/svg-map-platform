@@ -862,7 +862,7 @@ export default function EditorPage() {
       e.preventDefault();
       return;
     }
-  }, [activeTool, drawingOutline, outlinePoints, selectedObjectId, objects, layers, floorplanId, editorMode, activeLayerId, imageDims, placeWidth, placeHeight]);
+  }, [activeTool, drawingOutline, outlinePoints, selectedObjectId, objects, layers, floorplanId, editorMode, activeLayerId, imageDims, placeWidth, placeHeight, placingDeskLayout]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     const { x, y } = toSvgCoords(e.clientX, e.clientY);
