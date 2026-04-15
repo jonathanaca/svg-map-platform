@@ -48,7 +48,7 @@ export default function IsometricScene({ floorplan, objects, availability }: Pro
     <Canvas
       orthographic
       camera={{ position: [10, 14, 10], zoom: 1, near: 0.1, far: 500 }}
-      style={{ background: '#f1f5f9' }}
+      style={{ background: '#0f1419' }}
       gl={{ antialias: true }}
     >
       <CameraSetup canvasW={canvasW} canvasH={canvasH} />

@@ -36,7 +36,7 @@ export default function IsometricFloor({ floorplan, scale }: Props) {
       });
     }
     return new THREE.MeshBasicMaterial({
-      color: '#e2e8f0',
+      color: '#1e2530',
       transparent: true,
       opacity: 0.8,
       side: THREE.DoubleSide,
@@ -48,7 +48,7 @@ export default function IsometricFloor({ floorplan, scale }: Props) {
       {/* Floor base */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
         <planeGeometry args={[w + 0.3, h + 0.3]} />
-        <meshBasicMaterial color="#cbd5e1" side={THREE.DoubleSide} />
+        <meshBasicMaterial color="#1a2030" side={THREE.DoubleSide} />
       </mesh>
       {/* Floor surface with texture */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow material={material}>

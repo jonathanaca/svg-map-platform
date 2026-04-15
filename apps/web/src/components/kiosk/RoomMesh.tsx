@@ -21,8 +21,8 @@ export default function RoomMesh({ obj, canvasW, canvasH, scale, state }: Props)
 
   const height = getExtrusionHeight(obj.object_type);
   const statusColor = state ? getAvailabilityColor(state) : null;
-  const topColor = statusColor ?? '#e2e8f0';
-  const sideColor = statusColor ? darkenColor(statusColor, 0.65) : '#78859b';
+  const topColor = statusColor ?? '#2a3040';
+  const sideColor = statusColor ? darkenColor(statusColor, 0.65) : '#1e2530';
 
   const materials = useMemo(() => [
     new THREE.MeshLambertMaterial({ color: sideColor, transparent: true, opacity: 0.75 }),
@@ -58,7 +58,7 @@ export default function RoomMesh({ obj, canvasW, canvasH, scale, state }: Props)
       {/* Room floor fill */}
       {floorGeometry && (
         <mesh geometry={floorGeometry} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-          <meshLambertMaterial color={statusColor ?? '#f1f5f9'} transparent opacity={0.35} />
+          <meshLambertMaterial color={statusColor ?? '#1a2030'} transparent opacity={0.35} />
         </mesh>
       )}
       {/* Extruded walls */}
@@ -80,15 +80,15 @@ export default function RoomMesh({ obj, canvasW, canvasH, scale, state }: Props)
           {/* Label */}
           <Html position={[0, pinHeight + 0.15, 0]} center style={{ pointerEvents: 'none' }}>
             <div style={{
-              background: 'rgba(255,255,255,0.94)',
-              color: '#1e293b',
+              background: 'rgba(22,27,34,0.9)',
+              color: '#e6edf3',
               padding: '3px 8px',
               borderRadius: 4,
               fontSize: 10,
               fontWeight: 700,
               fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
               whiteSpace: 'nowrap',
-              boxShadow: '0 1px 6px rgba(0,0,0,0.12)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
               borderBottom: `2px solid ${pinColor}`,
               letterSpacing: '-0.2px',
             }}>

@@ -77,10 +77,11 @@ export function exportIsometricSvg(
 
   // Isometric transform matrix: skewX(-30deg) scaleY(0.86)
   // This tilts the flat map into an isometric-ish perspective
-  const isoTransform = `translate(${viewW / 2}, ${viewH * 0.15}) scale(0.75) skewY(15) skewX(-15)`;
+  // Cisco Spaces-style angle: slight tilt forward with perspective feel
+  const isoTransform = `translate(${viewW * 0.5}, ${viewH * 0.1}) scale(0.7, 0.55) rotate(-30) skewX(10)`;
 
   let svg = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-  svg += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewW} ${viewH}" width="${viewW}" height="${viewH}" style="background:#f8fafc">\n`;
+  svg += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewW} ${viewH}" width="${viewW}" height="${viewH}" style="background:#0f1419">\n`;
   svg += `<!-- Isometric SVG Map | Bookable spaces: ${objects.filter(o => o.object_type === 'room' || o.object_type === 'desk').length} | Generated: ${new Date().toISOString()} -->\n`;
 
   // CSS status classes
@@ -94,13 +95,13 @@ export function exportIsometricSvg(
   svg += `  .checked-in { fill: #2196F3; fill-opacity: 0.4; pointer-events: all; }\n`;
   svg += `  .out-of-service, .unavailable { fill: #9E9E9E; fill-opacity: 0.4; pointer-events: all; }\n`;
   svg += `  .restricted { fill: #795548; fill-opacity: 0.4; pointer-events: all; }\n`;
-  svg += `  .iso-label { font-family: -apple-system, Arial, sans-serif; font-weight: 700; fill: #1e293b; text-anchor: middle; dominant-baseline: central; pointer-events: none; }\n`;
+  svg += `  .iso-label { font-family: -apple-system, Arial, sans-serif; font-weight: 700; fill: #e2e8f0; text-anchor: middle; dominant-baseline: central; pointer-events: none; }\n`;
   svg += `</style>\n`;
 
   // Drop shadow filter for the whole map
   svg += `<defs>\n`;
   svg += `  <filter id="map-shadow" x="-10%" y="-10%" width="130%" height="130%">\n`;
-  svg += `    <feDropShadow dx="4" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.15"/>\n`;
+  svg += `    <feDropShadow dx="4" dy="8" stdDeviation="16" flood-color="#000" flood-opacity="0.5"/>\n`;
   svg += `  </filter>\n`;
   svg += `</defs>\n`;
 
@@ -108,7 +109,7 @@ export function exportIsometricSvg(
   svg += `<g transform="${isoTransform}" filter="url(#map-shadow)">\n`;
 
   // Background floor
-  svg += `  <rect x="0" y="0" width="${canvasW}" height="${canvasH}" rx="8" fill="#e2e8f0"/>\n`;
+  svg += `  <rect x="0" y="0" width="${canvasW}" height="${canvasH}" rx="8" fill="#1e2530"/>\n`;
 
   // Floor plan image
   if (bgDataUri) {
@@ -168,7 +169,7 @@ export function exportIsometricSvg(
     // Label background
     const lw = obj.label.length * fontSize * 0.55 + 12;
     const lh = fontSize + 8;
-    svg += `    <rect x="${cx - lw / 2}" y="${cy - lh / 2 - 2}" width="${lw}" height="${lh}" rx="3" fill="white" opacity="0.85"/>\n`;
+    svg += `    <rect x="${cx - lw / 2}" y="${cy - lh / 2 - 2}" width="${lw}" height="${lh}" rx="3" fill="#1a2030" opacity="0.85"/>\n`;
     svg += `    <text x="${cx}" y="${cy}" class="iso-label" font-size="${fontSize}">${escXml(obj.label)}</text>\n`;
   }
   svg += `  </g>\n`;
