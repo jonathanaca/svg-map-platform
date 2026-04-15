@@ -15,11 +15,11 @@ function darkenHex(hex: string, factor = 0.65): string {
 
 function getDepth(objectType: string): number {
   switch (objectType) {
-    case 'room': return 12;
-    case 'zone': case 'area': return 3;
-    case 'desk': return 5;
-    case 'parking': case 'locker': return 8;
-    default: return 4;
+    case 'room': return 18;
+    case 'zone': case 'area': return 4;
+    case 'desk': return 8;
+    case 'parking': case 'locker': return 12;
+    default: return 6;
   }
 }
 
@@ -55,9 +55,9 @@ function renderDepthShadow(obj: MapObject, depth: number, color: string): string
     const botBL = `${x + dx},${y + h + dy}`;
 
     // Right face
-    const right = `<polygon points="${topTR} ${botTR} ${botBR} ${topBR}" fill="${darkenHex(color, 0.5)}" opacity="0.6"/>`;
+    const right = `<polygon points="${topTR} ${botTR} ${botBR} ${topBR}" fill="${darkenHex(color, 0.7)}" opacity="0.8"/>`;
     // Bottom face
-    const bottom = `<polygon points="${topBL} ${topBR} ${botBR} ${botBL}" fill="${darkenHex(color, 0.35)}" opacity="0.6"/>`;
+    const bottom = `<polygon points="${topBL} ${topBR} ${botBR} ${botBL}" fill="${darkenHex(color, 0.5)}" opacity="0.8"/>`;
     return right + '\n' + bottom;
   }
   return '';
@@ -83,9 +83,7 @@ export function exportIsometricSvg(
 
   // CSS status classes
   svg += `<style>\n`;
-  svg += `  .st4, .st5 { fill: none; pointer-events: all; }\n`;
-  svg += `  .st4-depth { fill: #78859b; opacity: 0.5; }\n`;
-  svg += `  .st5-depth { fill: #4b7caa; opacity: 0.4; }\n`;
+  svg += `  .st4, .st5 { fill: #3a4555; fill-opacity: 0.6; pointer-events: all; }\n`;
   svg += `  .free, .available { fill: #4CAF50; fill-opacity: 0.4; pointer-events: all; }\n`;
   svg += `  .booked, .pending { fill: #FF9800; fill-opacity: 0.4; pointer-events: all; }\n`;
   svg += `  .occupied { fill: #F44336; fill-opacity: 0.4; pointer-events: all; }\n`;
@@ -140,8 +138,7 @@ export function exportIsometricSvg(
   svg += `  <g id="depth-shadows">\n`;
   for (const obj of bookable) {
     const depth = getDepth(obj.object_type);
-    const clsPrefix = obj.object_type === 'desk' ? 'st5' : 'st4';
-    svg += `    ${renderDepthShadow(obj, depth, '#94a3b8')}\n`;
+    svg += `    ${renderDepthShadow(obj, depth, '#4a5568')}\n`;
   }
   svg += `  </g>\n`;
 
