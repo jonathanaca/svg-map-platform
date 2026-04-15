@@ -7,6 +7,7 @@ import IsometricFloor from './IsometricFloor.js';
 import RoomMesh from './RoomMesh.js';
 import DeskMesh from './DeskMesh.js';
 import FurnitureMesh from './FurnitureMesh.js';
+import WallMesh from './WallMesh.js';
 import AmenityPin from './AmenityPin.js';
 
 interface Props {
@@ -97,6 +98,18 @@ export default function IsometricScene({ floorplan, objects, availability }: Pro
               />
             );
           case 'decorative':
+            // Walls get extruded 3D walls, furniture gets furniture mesh
+            if (obj.layer === 'walls') {
+              return (
+                <WallMesh
+                  key={obj.id}
+                  obj={obj}
+                  canvasW={canvasW}
+                  canvasH={canvasH}
+                  scale={SCALE}
+                />
+              );
+            }
             return (
               <FurnitureMesh
                 key={obj.id}
