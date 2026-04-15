@@ -315,3 +315,101 @@ export async function importObjectsCsv(floorplanId: string, file: File): Promise
   });
   return handleResponse<{ imported: number }>(response);
 }
+
+// ── PlaceOS Integration ──
+
+export interface PlaceOSConfig {
+  configured: boolean;
+  domain: string;
+  has_key: boolean;
+}
+
+export interface PlaceOSZone {
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  display_name: string;
+  map_id: string;
+  parent_id: string;
+  capacity: number;
+  timezone: string;
+}
+
+export interface PlaceOSSystem {
+  id: string;
+  name: string;
+  map_id: string;
+  bookable: boolean;
+  capacity: number;
+  zones: string[];
+  display_name: string;
+  features: string[];
+}
+
+export async function getPlaceOSConfig(): Promise<PlaceOSConfig> {
+  const response = await fetch(`${API_BASE}/placeos/config`);
+  return handleResponse<PlaceOSConfig>(response);
+}
+
+export async function setPlaceOSConfig(domain: string, api_key: string): Promise<{ ok: boolean }> {
+  const response = await fetch(`${API_BASE}/placeos/config`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ domain, api_key }),
+  });
+  return handleResponse<{ ok: boolean }>(response);
+}
+
+export async function testPlaceOSConnection(): Promise<{ ok: boolean; user?: { name: string; email: string; sys_admin: boolean }; error?: string }> {
+  const response = await fetch(`${API_BASE}/placeos/test`);
+  return response.json();
+}
+
+export async function getPlaceOSZones(tags?: string, parent_id?: string): Promise<PlaceOSZone[]> {
+  const params = new URLSearchParams();
+  if (tags) params.set('tags', tags);
+  if (parent_id) params.set('parent_id', parent_id);
+  const response = await fetch(`${API_BASE}/placeos/zones?${params}`);
+  return handleResponse<PlaceOSZone[]>(response);
+}
+
+export async function getPlaceOSZone(id: string): Promise<PlaceOSZone> {
+  const response = await fetch(`${API_BASE}/placeos/zones/${id}`);
+  return handleResponse<PlaceOSZone>(response);
+}
+
+export async function updatePlaceOSZone(id: string, data: Partial<PlaceOSZone>): Promise<PlaceOSZone> {
+  const response = await fetch(`${API_BASE}/placeos/zones/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return handleResponse<PlaceOSZone>(response);
+}
+
+export async function getPlaceOSSystems(zone_id?: string, bookable?: boolean): Promise<PlaceOSSystem[]> {
+  const params = new URLSearchParams();
+  if (zone_id) params.set('zone_id', zone_id);
+  if (bookable !== undefined) params.set('bookable', String(bookable));
+  const response = await fetch(`${API_BASE}/placeos/systems?${params}`);
+  return handleResponse<PlaceOSSystem[]>(response);
+}
+
+export async function updatePlaceOSSystem(id: string, data: Partial<PlaceOSSystem>): Promise<PlaceOSSystem> {
+  const response = await fetch(`${API_BASE}/placeos/systems/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return handleResponse<PlaceOSSystem>(response);
+}
+
+export async function uploadSvgToPlaceOS(svg_content: string, filename: string): Promise<{ ok: boolean; upload_id: string; file_url: string }> {
+  const response = await fetch(`${API_BASE}/placeos/upload-svg`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ svg_content, filename }),
+  });
+  return handleResponse<{ ok: boolean; upload_id: string; file_url: string }>(response);
+}

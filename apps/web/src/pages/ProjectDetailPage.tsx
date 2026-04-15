@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Project, Floorplan } from '@svg-map/types';
 import { getProject, addFloorplan, deleteFloorplan } from '../lib/api.js';
+import PlaceOSConnect from '../components/PlaceOSConnect.js';
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, { bg: string; color: string }> = {
@@ -303,6 +304,12 @@ export default function ProjectDetailPage() {
             ))}
         </div>
       )}
+
+      {/* PlaceOS Integration */}
+      <div className="card" style={{ marginTop: 24 }}>
+        <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 0 }}>PlaceOS Integration</h3>
+        <PlaceOSConnect />
+      </div>
     </div>
   );
 }

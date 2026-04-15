@@ -12,6 +12,7 @@ import projectsRouter from './routes/projects.js';
 import floorplansRouter from './routes/floorplans.js';
 import objectsRouter from './routes/objects.js';
 import importRouter from './routes/import.js';
+import placeosRouter from './routes/placeos.js';
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
@@ -33,6 +34,7 @@ app.use('/api/projects', projectsRouter);
 app.use('/api/floorplans', floorplansRouter);
 app.use('/api', objectsRouter);
 app.use('/api/import', importRouter);
+app.use('/api/placeos', placeosRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {
