@@ -1333,7 +1333,7 @@ export default function EditorPage() {
                     </button>
                   ))}
                   <div style={{ padding: '4px 8px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderTop: '1px solid var(--color-border)', marginTop: 2 }}>Face to Face</div>
-                  {DESK_LAYOUTS.filter(l => l.rows === 2).map(l => (
+                  {DESK_LAYOUTS.filter(l => l.rows >= 2).map(l => (
                     <button
                       key={l.id}
                       onClick={() => { setPlacingDeskLayout(l.id); setShowDeskLayoutPicker(false); setPlacingFurniture(null); setPlacingAmenity(null); setActiveTool('select'); }}
