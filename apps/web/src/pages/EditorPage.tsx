@@ -33,7 +33,7 @@ import {
   type PlaceOSSystem,
 } from '../lib/api.js';
 
-type Tool = 'select' | 'rect' | 'polygon' | 'pen';
+type Tool = 'select' | 'rect' | 'polygon' | 'pen' | 'wall';
 type EditorMode = 'design' | 'label' | 'preview';
 
 type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
@@ -278,6 +278,11 @@ export default function EditorPage() {
   // Editor search
   const [editorSearchQuery, setEditorSearchQuery] = useState('');
   const [editorSearchOpen, setEditorSearchOpen] = useState(false);
+
+  // Wall drawing state
+  const [wallStart, setWallStart] = useState<{ x: number; y: number } | null>(null);
+  const [wallPreview, setWallPreview] = useState<{ x: number; y: number } | null>(null);
+  const [wallThickness, setWallThickness] = useState(6);
 
   // PlaceOS integration state
   const [placeosConnected, setPlaceosConnected] = useState(false);
@@ -721,6 +726,68 @@ export default function EditorPage() {
       return;
     }
 
+    // ── Wall drawing tool ──
+    if (activeTool === 'wall' && floorplanId) {
+      let wx = x, wy = y;
+      // Shift = constrain to horizontal or vertical
+      if (e.shiftKey && wallStart) {
+        const dx = Math.abs(x - wallStart.x);
+        const dy = Math.abs(y - wallStart.y);
+        if (dx > dy) wy = wallStart.y;
+        else wx = wallStart.x;
+      }
+      // Snap to grid
+      if (editorState.snapEnabled && editorState.gridSize) {
+        const gs = editorState.gridSize;
+        wx = Math.round(wx / gs) * gs;
+        wy = Math.round(wy / gs) * gs;
+      }
+
+      if (!wallStart) {
+        // First click — set start point
+        setWallStart({ x: wx, y: wy });
+      } else {
+        // Second click — create wall as a thin rect
+        const dx = wx - wallStart.x;
+        const dy = wy - wallStart.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len > 5) {
+          const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+          const cx = (wallStart.x + wx) / 2;
+          const cy = (wallStart.y + wy) / 2;
+          const existingWalls = objects.filter(o => o.object_type === 'decorative' && o.layer === 'walls').length;
+
+          createObject(floorplanId, {
+            object_type: 'decorative',
+            label: `Wall ${existingWalls + 1}`,
+            svg_id: `wall-${String(existingWalls + 1).padStart(3, '0')}`,
+            geometry: {
+              type: 'rect',
+              x: cx - len / 2,
+              y: cy - wallThickness / 2,
+              width: len,
+              height: wallThickness,
+              rotation: angle,
+            },
+            layer: 'walls',
+            fill_color: '#374151',
+            stroke_color: '#1f2937',
+            opacity: 1,
+            visible: true,
+            locked: false,
+            z_index: objects.length,
+          }).then((newObj) => {
+            setObjects(prev => [...prev, newObj]);
+            setDirty(true);
+          }).catch(console.error);
+        }
+        // Reset for next wall (keep drawing)
+        setWallStart({ x: wx, y: wy });
+      }
+      e.preventDefault();
+      return;
+    }
+
     // ── Furniture placement mode ──
     if (placingFurniture && floorplanId) {
       const asset = FURNITURE_ASSETS.find(a => a.id === placingFurniture);
@@ -960,7 +1027,24 @@ export default function EditorPage() {
     } else if (rectDraw) {
       setRectDraw(prev => prev ? { ...prev, currentX: x, currentY: y } : null);
     }
-  }, [dragging, resizing, drawing, rectDraw, objects]);
+
+    // Wall preview
+    if (activeTool === 'wall' && wallStart) {
+      let wx = x, wy = y;
+      if (e.shiftKey) {
+        const dx = Math.abs(x - wallStart.x);
+        const dy = Math.abs(y - wallStart.y);
+        if (dx > dy) wy = wallStart.y;
+        else wx = wallStart.x;
+      }
+      if (editorState.snapEnabled && editorState.gridSize) {
+        const gs = editorState.gridSize;
+        wx = Math.round(wx / gs) * gs;
+        wy = Math.round(wy / gs) * gs;
+      }
+      setWallPreview({ x: wx, y: wy });
+    }
+  }, [dragging, resizing, drawing, rectDraw, objects, activeTool, wallStart, editorState.snapEnabled, editorState.gridSize]);
 
   const handleMouseUp = useCallback(() => {
     if (dragging) {
@@ -1068,8 +1152,12 @@ export default function EditorPage() {
         setSelectedObjectId(null);
         setPlacingAmenity(null);
         setPlacingFurniture(null);
+        setPlacingDeskLayout(null);
         setDrawingOutline(false);
         setOutlinePoints([]);
+        setWallStart(null);
+        setWallPreview(null);
+        if (activeTool === 'wall') setActiveTool('select');
         return;
       }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObjectId) {
@@ -1079,9 +1167,10 @@ export default function EditorPage() {
       // Tool shortcuts (single key, no modifier)
       if (!e.ctrlKey && !e.metaKey && !e.altKey) {
         switch (e.key.toLowerCase()) {
-          case 'v': setActiveTool('select'); setPlacingAmenity(null); setPlacingFurniture(null); setPlacingDeskLayout(null); break;
-          case 'r': setActiveTool('rect'); break;
-          case 'p': setActiveTool('pen'); break;
+          case 'v': setActiveTool('select'); setPlacingAmenity(null); setPlacingFurniture(null); setPlacingDeskLayout(null); setWallStart(null); setWallPreview(null); break;
+          case 'r': setActiveTool('rect'); setWallStart(null); setWallPreview(null); break;
+          case 'p': setActiveTool('pen'); setWallStart(null); setWallPreview(null); break;
+          case 'w': setActiveTool('wall'); setPlacingAmenity(null); setPlacingFurniture(null); setPlacingDeskLayout(null); break;
           case 'g': setEditorState(prev => ({ ...prev, gridEnabled: !prev.gridEnabled })); break;
           // Ctrl+F handled below for search
         }
@@ -1324,12 +1413,13 @@ export default function EditorPage() {
                 { tool: 'select' as Tool, label: 'Select', hint: '(V)', svgIcon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg> },
                 { tool: 'rect' as Tool, label: 'Rect', hint: '(R)', svgIcon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> },
                 { tool: 'polygon' as Tool, label: 'Polygon', hint: '(P)', svgIcon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 22 8.5 18 20 6 20 2 8.5"/></svg> },
+                { tool: 'wall' as Tool, label: 'Wall', hint: '(W)', svgIcon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="4" y1="20" x2="20" y2="4"/></svg> },
                 { tool: 'pen' as Tool, label: 'Place', hint: '(Click)', svgIcon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg> },
               ]).map(({ tool, label, hint, svgIcon }) => (
                 <button
                   key={tool}
                   className={`dc-tool-btn ${activeTool === tool && !placingAmenity && !drawingOutline ? 'dc-tool-btn--active' : ''}`}
-                  onClick={() => { setActiveTool(tool); setOutlinePoints([]); setDrawingOutline(false); setRectDraw(null); setPlacingAmenity(null); setShowAmenityPicker(false); setPlacingFurniture(null); setShowFurniturePicker(false); }}
+                  onClick={() => { setActiveTool(tool); setOutlinePoints([]); setDrawingOutline(false); setRectDraw(null); setPlacingAmenity(null); setShowAmenityPicker(false); setPlacingFurniture(null); setShowFurniturePicker(false); setWallStart(null); setWallPreview(null); setPlacingDeskLayout(null); }}
                   title={`${label} ${hint}`}
                 >
                   {svgIcon}
@@ -1337,6 +1427,23 @@ export default function EditorPage() {
                 </button>
               ))}
             </div>
+            {/* Wall tool thickness control */}
+            {activeTool === 'wall' && (
+              <div className="dc-toolbar-group" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={{ fontSize: 11, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>Thickness</label>
+                <input
+                  type="range"
+                  min={2}
+                  max={20}
+                  value={wallThickness}
+                  onChange={e => setWallThickness(Number(e.target.value))}
+                  style={{ width: 60 }}
+                  title={`Wall thickness: ${wallThickness}px`}
+                />
+                <span style={{ fontSize: 11, color: 'var(--color-text-muted)', minWidth: 24 }}>{wallThickness}</span>
+                <span style={{ fontSize: 10, color: 'var(--color-text-secondary)' }}>Hold Shift for straight lines</span>
+              </div>
+            )}
             {/* Place tool size controls */}
             {activeTool === 'pen' && !placingAmenity && !drawingOutline && (
               <div className="dc-toolbar-group" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -2056,6 +2163,36 @@ export default function EditorPage() {
                 strokeDasharray="6 3"
                 style={{ pointerEvents: 'none' }}
               />
+            )}
+            {/* Wall drawing preview */}
+            {wallStart && wallPreview && activeTool === 'wall' && (
+              <g data-ui-only="true" style={{ pointerEvents: 'none' }}>
+                {/* Preview line */}
+                <line
+                  x1={wallStart.x} y1={wallStart.y}
+                  x2={wallPreview.x} y2={wallPreview.y}
+                  stroke="#374151" strokeWidth={wallThickness}
+                  strokeLinecap="round" opacity={0.6}
+                />
+                {/* Start dot */}
+                <circle cx={wallStart.x} cy={wallStart.y} r={4} fill="#374151" />
+                {/* End dot */}
+                <circle cx={wallPreview.x} cy={wallPreview.y} r={4} fill="#374151" stroke="#fff" strokeWidth={1} />
+                {/* Length label */}
+                <text
+                  x={(wallStart.x + wallPreview.x) / 2}
+                  y={(wallStart.y + wallPreview.y) / 2 - 10}
+                  textAnchor="middle" fontSize={10} fill="#374151"
+                  fontFamily="Arial" fontWeight="600"
+                  style={{ pointerEvents: 'none', userSelect: 'none' }}
+                >
+                  {Math.round(Math.sqrt((wallPreview.x - wallStart.x) ** 2 + (wallPreview.y - wallStart.y) ** 2))}px
+                </text>
+              </g>
+            )}
+            {/* Wall start marker when tool active but no preview yet */}
+            {wallStart && !wallPreview && activeTool === 'wall' && (
+              <circle data-ui-only="true" cx={wallStart.x} cy={wallStart.y} r={5} fill="#374151" stroke="#fff" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
             )}
 
             {/* Polygon outline drawing preview */}
