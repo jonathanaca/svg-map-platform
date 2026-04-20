@@ -2931,24 +2931,42 @@ export default function EditorPage() {
                     } catch { /* skip bg if fetch fails */ }
                   }
 
-                  // Wall outlines for rooms
-                  const roomObjs = objects.filter(o => o.object_type === 'room' && o.visible);
-                  if (roomObjs.length > 0) {
-                    lines.push(`  <g id="walls">`);
-                    for (const obj of roomObjs) {
-                      const g = obj.geometry;
-                      if (g.type === 'rect') {
-                        lines.push(`    <rect x="${g.x ?? 0}" y="${g.y ?? 0}" width="${g.width ?? 50}" height="${g.height ?? 50}" fill="none" stroke="#1a1a1a" stroke-width="2" />`);
-                      } else if (g.type === 'polygon' && g.points) {
-                        const pts = g.points.map(p => `${p.x},${p.y}`).join(' ');
-                        lines.push(`    <polygon points="${pts}" fill="none" stroke="#1a1a1a" stroke-width="2" />`);
-                      }
+                  // Helper: convert any color to rgba with specific opacity
+                  const toFillOpacity = (hex: string, opacity: number): string => {
+                    const clean = hex.replace('#', '').slice(0, 6);
+                    const r = parseInt(clean.slice(0, 2), 16) || 0;
+                    const g = parseInt(clean.slice(2, 4), 16) || 0;
+                    const b = parseInt(clean.slice(4, 6), 16) || 0;
+                    return `rgba(${r},${g},${b},${opacity})`;
+                  };
+
+                  // Export fill/stroke per type (clean, consistent look)
+                  const getExportFill = (obj: MapObject): string => {
+                    const baseColor = TYPE_COLORS[obj.object_type] ?? '#4b5563';
+                    switch (obj.object_type) {
+                      case 'room': return toFillOpacity(obj.fill_color || baseColor, 0.25);
+                      case 'desk': return toFillOpacity(obj.fill_color || baseColor, 0.35);
+                      case 'zone': case 'area': return toFillOpacity(obj.fill_color || baseColor, 0.15);
+                      case 'amenity': return toFillOpacity(obj.fill_color || baseColor, 0.5);
+                      case 'decorative': return obj.layer === 'walls' ? '#374151' : toFillOpacity(baseColor, 0.3);
+                      default: return toFillOpacity(baseColor, 0.3);
                     }
-                    lines.push(`  </g>`);
-                  }
+                  };
+                  const getExportStroke = (obj: MapObject): string => {
+                    if (obj.object_type === 'room') return '#374151';
+                    if (obj.object_type === 'desk') return TYPE_COLORS.desk ?? '#22c55e';
+                    if (obj.object_type === 'decorative' && obj.layer === 'walls') return '#1f2937';
+                    return obj.stroke_color || TYPE_COLORS[obj.object_type] ?? '#6b7280';
+                  };
+                  const getExportStrokeWidth = (obj: MapObject): string => {
+                    if (obj.object_type === 'room') return '1.5';
+                    if (obj.object_type === 'desk') return '0.8';
+                    if (obj.object_type === 'decorative' && obj.layer === 'walls') return '1';
+                    return '1';
+                  };
 
                   // Render each object by type
-                  const typeOrder = ['zone', 'area', 'room', 'desk', 'locker', 'parking', 'decorative', 'amenity'];
+                  const typeOrder = ['decorative', 'zone', 'area', 'room', 'desk', 'locker', 'parking', 'amenity'];
                   for (const objType of typeOrder) {
                     const typeObjs = objects.filter(o => o.object_type === objType && o.visible);
                     if (typeObjs.length === 0) continue;
@@ -2956,25 +2974,28 @@ export default function EditorPage() {
                     lines.push(`  <g id="${objType}s">`);
                     for (const obj of typeObjs) {
                       const g = obj.geometry;
-                      const fill = obj.fill_color || (TYPE_COLORS[obj.object_type] ?? '#4b5563') + '55';
-                      const stroke = obj.stroke_color || TYPE_COLORS[obj.object_type] ?? '#4b5563';
+                      const fill = getExportFill(obj);
+                      const stroke = getExportStroke(obj);
+                      const sw = getExportStrokeWidth(obj);
                       const label = obj.label || '';
                       const svgId = obj.svg_id || obj.id;
+                      const rotation = g.rotation ? ` transform="rotate(${g.rotation} ${(g.x ?? 0) + (g.width ?? 0) / 2} ${(g.y ?? 0) + (g.height ?? 0) / 2})"` : '';
 
                       if (g.type === 'rect') {
                         const rx = g.x ?? 0, ry = g.y ?? 0, rw = g.width ?? 50, rh = g.height ?? 50;
-                        lines.push(`    <g id="${svgId}">`);
-                        lines.push(`      <rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" rx="2" data-type="${obj.object_type}" data-label="${label}" />`);
-                        if (label) {
-                          const fontSize = Math.max(8, Math.min(rw / 6, rh / 3, 20));
-                          lines.push(`      <text x="${rx + rw / 2}" y="${ry + rh / 2}" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="${fontSize}" font-weight="600" font-family="Arial, sans-serif">${label}</text>`);
+                        lines.push(`    <g id="${svgId}"${rotation}>`);
+                        lines.push(`      <rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" rx="2" data-type="${obj.object_type}" data-label="${label}" />`);
+                        if (label && obj.object_type !== 'decorative') {
+                          const fontSize = Math.max(8, Math.min(rw / 6, rh / 3, 16));
+                          const textFill = obj.object_type === 'room' ? '#1e293b' : '#ffffff';
+                          lines.push(`      <text x="${rx + rw / 2}" y="${ry + rh / 2}" text-anchor="middle" dominant-baseline="central" fill="${textFill}" font-size="${fontSize}" font-weight="600" font-family="Arial, sans-serif">${label}</text>`);
                         }
                         lines.push(`    </g>`);
                       } else if (g.type === 'polygon' && g.points) {
                         const pts = g.points.map(p => `${p.x},${p.y}`).join(' ');
-                        lines.push(`    <polygon id="${svgId}" points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" data-type="${obj.object_type}" data-label="${label}" />`);
+                        lines.push(`    <polygon id="${svgId}" points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" data-type="${obj.object_type}" data-label="${label}" />`);
                       } else if (g.type === 'circle') {
-                        lines.push(`    <circle id="${svgId}" cx="${g.x ?? 0}" cy="${g.y ?? 0}" r="${g.r ?? 10}" fill="${fill}" stroke="${stroke}" stroke-width="1" data-type="${obj.object_type}" data-label="${label}" />`);
+                        lines.push(`    <circle id="${svgId}" cx="${g.x ?? 0}" cy="${g.y ?? 0}" r="${g.r ?? 10}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" data-type="${obj.object_type}" data-label="${label}" />`);
                       }
                     }
                     lines.push(`  </g>`);
