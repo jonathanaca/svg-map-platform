@@ -24,7 +24,18 @@ const TYPE_COLORS: Record<string, string> = {
 export default function Minimap({ objects, canvasW, canvasH, containerRef, zoom, floorplanId }: MinimapProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [viewport, setViewport] = useState({ x: 0, y: 0, w: 100, h: 100 });
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgSrc, setImgSrc] = useState<string | null>(null);
   const minimapRef = useRef<HTMLDivElement>(null);
+
+  // Preload the floorplan image to check if it exists
+  useEffect(() => {
+    if (!floorplanId) { setImgLoaded(false); setImgSrc(null); return; }
+    const img = new Image();
+    img.onload = () => { setImgLoaded(true); setImgSrc(`/api/floorplans/${floorplanId}/source-preview`); };
+    img.onerror = () => { setImgLoaded(false); setImgSrc(null); };
+    img.src = `/api/floorplans/${floorplanId}/source-preview`;
+  }, [floorplanId]);
 
   const MINIMAP_W = 180;
   const aspect = canvasH / canvasW;
@@ -76,7 +87,7 @@ export default function Minimap({ objects, canvasW, canvasH, containerRef, zoom,
   if (collapsed) {
     return (
       <div style={{
-        position: 'fixed', bottom: 40, right: 240, zIndex: 100,
+        position: 'fixed', bottom: 50, right: 250, zIndex: 100,
         background: 'var(--color-surface)', borderRadius: 6,
         border: '1px solid var(--color-border)',
         boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
@@ -94,9 +105,9 @@ export default function Minimap({ objects, canvasW, canvasH, containerRef, zoom,
     <div
       ref={minimapRef}
       style={{
-        position: 'fixed', bottom: 40, right: 240, zIndex: 100,
+        position: 'fixed', bottom: 50, right: 250, zIndex: 100,
         width: MINIMAP_W, height: MINIMAP_H,
-        background: '#f8fafc',
+        background: '#e8e8e8',
         borderRadius: 8,
         border: '1px solid var(--color-border)',
         boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
@@ -123,9 +134,9 @@ export default function Minimap({ objects, canvasW, canvasH, containerRef, zoom,
         <rect x={0} y={0} width={canvasW} height={canvasH} fill="#e8e8e8" />
 
         {/* Floor plan image */}
-        {floorplanId && (
+        {imgLoaded && imgSrc && (
           <image
-            href={`/api/floorplans/${floorplanId}/source-preview`}
+            href={imgSrc}
             x={0} y={0}
             width={canvasW} height={canvasH}
             opacity={0.7}
