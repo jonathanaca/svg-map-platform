@@ -62,9 +62,12 @@ export default function FloorPlanView2D({ floorplan, objects, availability, heat
   );
 
   function getFill(obj: MapObject): string {
+    // When heatmap is on, make rooms/desks very faint so the heatmap colors show through
+    if (heatmapEnabled && (obj.object_type === 'room' || obj.object_type === 'desk')) {
+      return 'rgba(255, 255, 255, 0.08)';
+    }
     const state = availability[obj.id];
     if (state && STATUS_FILLS[state]) {
-      // Desks get a more opaque fill so the whole desk is visibly colored
       if (obj.object_type === 'desk') {
         const opaque: Record<string, string> = {
           free: 'rgba(76, 175, 80, 0.7)',
@@ -80,11 +83,14 @@ export default function FloorPlanView2D({ floorplan, objects, availability, heat
       }
       return STATUS_FILLS[state];
     }
-    if (obj.object_type === 'desk') return 'rgba(76, 175, 80, 0.7)'; // default green (available)
+    if (obj.object_type === 'desk') return 'rgba(76, 175, 80, 0.7)';
     return DEFAULT_FILL;
   }
 
   function getStroke(obj: MapObject): string {
+    if (heatmapEnabled && (obj.object_type === 'room' || obj.object_type === 'desk')) {
+      return 'rgba(255, 255, 255, 0.2)';
+    }
     const state = availability[obj.id];
     if (state && STATUS_STROKES[state]) return STATUS_STROKES[state];
     if (obj.object_type === 'desk') return '#4CAF50';
