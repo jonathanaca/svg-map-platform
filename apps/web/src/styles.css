@@ -1745,3 +1745,169 @@ body:has(.dc-toolbar) {
     max-height: 300px;
   }
 }
+
+/* ── Toast Animations ─────────────────────────────────────────────────────── */
+
+@keyframes toast-slide-in {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Search Highlight Flash ───────────────────────────────────────────────── */
+
+@keyframes search-flash {
+  0%, 100% { stroke-opacity: 0; }
+  25% { stroke-opacity: 1; }
+  50% { stroke-opacity: 0; }
+  75% { stroke-opacity: 1; }
+}
+
+/* ── Context Menu ─────────────────────────────────────────────────────────── */
+
+.context-menu {
+  position: fixed;
+  z-index: 99999;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.1);
+  min-width: 180px;
+  padding: 4px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--color-text);
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.context-menu-item:hover {
+  background: var(--color-primary-light);
+}
+
+.context-menu-item--danger {
+  color: var(--color-danger);
+}
+
+.context-menu-item--danger:hover {
+  background: var(--color-danger-light);
+}
+
+.context-menu-sep {
+  height: 1px;
+  background: var(--color-border);
+  margin: 4px 8px;
+}
+
+.context-menu-shortcut {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  font-family: monospace;
+}
+
+/* ── Keyboard Shortcuts Modal ─────────────────────────────────────────────── */
+
+.shortcuts-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shortcuts-panel {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 24px 28px;
+  max-width: 520px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+}
+
+.shortcuts-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.shortcuts-title h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.shortcuts-close {
+  border: none;
+  background: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.shortcuts-close:hover {
+  background: var(--color-bg);
+}
+
+.shortcuts-group {
+  margin-bottom: 16px;
+}
+
+.shortcuts-group-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 0;
+}
+
+.shortcut-row span {
+  font-size: 0.82rem;
+  color: var(--color-text);
+}
+
+.shortcut-keys {
+  display: flex;
+  gap: 4px;
+}
+
+kbd {
+  display: inline-block;
+  padding: 2px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  font-family: monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  min-width: 22px;
+  text-align: center;
+  line-height: 1.5;
+  color: var(--color-text);
+}

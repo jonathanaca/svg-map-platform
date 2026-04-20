@@ -5,6 +5,7 @@ import { useKioskData } from '../hooks/useKioskData.js';
 import { useAvailabilityPolling } from '../hooks/useAvailabilityPolling.js';
 import { STATE_COLORS, ALL_STATES } from '../lib/availabilityColors.js';
 import IsometricScene from '../components/kiosk/IsometricScene.js';
+import FloorPlanView2D from '../components/kiosk/FloorPlanView2D.js';
 import { exportIsometricSvg } from '../lib/isometricSvgExport.js';
 import './KioskPage.css';
 
@@ -64,6 +65,9 @@ export default function KioskPage() {
   const sortedFloors = project?.floorplans
     ? [...project.floorplans].sort((a, b) => a.floor_index - b.floor_index)
     : [];
+
+  // View mode: 2D (Cisco Spaces style) or 3D (isometric)
+  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
 
   // Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -127,6 +131,32 @@ export default function KioskPage() {
           </div>
         </div>
         <div className="kiosk-header-right">
+          <div style={{ display: 'flex', background: '#21262d', borderRadius: 6, overflow: 'hidden', border: '1px solid #30363d' }}>
+            <button
+              onClick={() => setViewMode('2d')}
+              style={{
+                padding: '5px 12px',
+                fontSize: 11,
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                background: viewMode === '2d' ? '#388bfd' : 'transparent',
+                color: viewMode === '2d' ? '#fff' : '#8b949e',
+              }}
+            >2D</button>
+            <button
+              onClick={() => setViewMode('3d')}
+              style={{
+                padding: '5px 12px',
+                fontSize: 11,
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                background: viewMode === '3d' ? '#388bfd' : 'transparent',
+                color: viewMode === '3d' ? '#fff' : '#8b949e',
+              }}
+            >3D</button>
+          </div>
           <button
             className="kiosk-header-btn"
             onClick={() => setShowShare(!showShare)}
@@ -156,9 +186,16 @@ export default function KioskPage() {
         </div>
       </aside>
 
-      {/* 3D Scene */}
+      {/* Map View */}
       <main className="kiosk-scene">
-        {floorplan && (
+        {floorplan && viewMode === '2d' && (
+          <FloorPlanView2D
+            floorplan={floorplan}
+            objects={objects}
+            availability={availability}
+          />
+        )}
+        {floorplan && viewMode === '3d' && (
           <IsometricScene
             floorplan={floorplan}
             objects={objects}

@@ -21,12 +21,12 @@ export default function RoomMesh({ obj, canvasW, canvasH, scale, state }: Props)
 
   const height = getExtrusionHeight(obj.object_type);
   const statusColor = state ? getAvailabilityColor(state) : null;
-  const topColor = statusColor ?? '#2a3040';
-  const sideColor = statusColor ? darkenColor(statusColor, 0.65) : '#1e2530';
+  const topColor = statusColor ?? '#64748b';
+  const sideColor = statusColor ? darkenColor(statusColor, 0.7) : '#475569';
 
   const materials = useMemo(() => [
-    new THREE.MeshLambertMaterial({ color: sideColor, transparent: true, opacity: 0.75 }),
-    new THREE.MeshLambertMaterial({ color: topColor, transparent: true, opacity: 0.55 }),
+    new THREE.MeshLambertMaterial({ color: sideColor, transparent: true, opacity: 0.9 }),
+    new THREE.MeshLambertMaterial({ color: topColor, transparent: true, opacity: 0.45 }),
   ], [topColor, sideColor]);
 
   const floorGeometry = useMemo(() => {
@@ -42,6 +42,34 @@ export default function RoomMesh({ obj, canvasW, canvasH, scale, state }: Props)
     return null;
   }, [obj, canvasW, canvasH, scale]);
 
+  // Wall outline around room edges
+  const wallOutlineGeometry = useMemo(() => {
+    const geom = obj.geometry;
+    const points: THREE.Vector3[] = [];
+    if (geom.type === 'rect') {
+      const x = (geom.x ?? 0), y = (geom.y ?? 0), w = (geom.width ?? 50), h = (geom.height ?? 50);
+      const corners = [
+        { x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }, { x, y },
+      ];
+      corners.forEach(p => {
+        const wx = (p.x - canvasW / 2) * scale;
+        const wz = (p.y - canvasH / 2) * scale;
+        points.push(new THREE.Vector3(wx, height + 0.01, wz));
+      });
+    } else if (geom.type === 'polygon' && geom.points && geom.points.length >= 3) {
+      geom.points.forEach(p => {
+        const wx = (p.x - canvasW / 2) * scale;
+        const wz = (p.y - canvasH / 2) * scale;
+        points.push(new THREE.Vector3(wx, height + 0.01, wz));
+      });
+      // Close the loop
+      const first = geom.points[0];
+      points.push(new THREE.Vector3((first.x - canvasW / 2) * scale, height + 0.01, (first.y - canvasH / 2) * scale));
+    }
+    if (points.length < 2) return null;
+    return new THREE.BufferGeometry().setFromPoints(points);
+  }, [obj, canvasW, canvasH, scale, height]);
+
   if (!geometry) return null;
 
   const geom = obj.geometry;
@@ -50,19 +78,26 @@ export default function RoomMesh({ obj, canvasW, canvasH, scale, state }: Props)
 
   const isRoom = obj.object_type === 'room';
   const pinColor = statusColor ?? '#94a3b8';
-  const pinHeight = height + 0.6;
-  const stemHeight = 0.4;
+  const pinHeight = height + 0.3;
+  const stemHeight = 0.2;
 
   return (
     <group>
       {/* Room floor fill */}
       {floorGeometry && (
         <mesh geometry={floorGeometry} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-          <meshLambertMaterial color={statusColor ?? '#1a2030'} transparent opacity={0.35} />
+          <meshLambertMaterial color={statusColor ?? '#94a3b8'} transparent opacity={0.12} />
         </mesh>
       )}
       {/* Extruded walls */}
       <mesh geometry={geometry} material={materials} rotation={[-Math.PI / 2, 0, 0]} />
+
+      {/* Wall outline around room */}
+      {wallOutlineGeometry && (
+        <line geometry={wallOutlineGeometry}>
+          <lineBasicMaterial color="#1a1a1a" linewidth={2} />
+        </line>
+      )}
 
       {/* Pin with room name */}
       {isRoom && obj.label && (

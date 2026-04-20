@@ -30,7 +30,7 @@ function CameraSetup({ canvasW, canvasH }: { canvasW: number; canvasH: number })
       camera.right = frustum * aspect;
       camera.top = frustum;
       camera.bottom = -frustum;
-      camera.position.set(10, 14, 10);
+      camera.position.set(6, 18, 6);
       camera.lookAt(0, 0, 0);
       camera.updateProjectionMatrix();
     }

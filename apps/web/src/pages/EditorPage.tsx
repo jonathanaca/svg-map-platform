@@ -15,10 +15,12 @@ import {
   importObjectsCsv,
 } from '../lib/api.js';
 import PropertiesPanel from '../components/PropertiesPanel.js';
+import { useToast, ToastContainer } from '../components/Toast.js';
 import LayerPanel, { DEFAULT_LAYERS } from '../components/LayerPanel.js';
 import ValidationPanel from '../components/ValidationPanel.js';
 import LabellingPanel from '../components/LabellingPanel.js';
 import AvailabilityPreview, { getAvailabilityColor, STATE_COLORS, ALL_STATES, getStatesForType, cycleState } from '../components/AvailabilityPreview.js';
+import Minimap from '../components/Minimap.js';
 import { exportIsometricSvg } from '../lib/isometricSvgExport.js';
 import {
   getPlaceOSConfig,
@@ -69,6 +71,17 @@ const AMENITY_ICONS: { id: string; label: string; emoji: string; svg: string }[]
   { id: 'presentation', label: 'Presentation', emoji: '📽️', svg: '<rect x="2" y="4" width="20" height="13" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 17v3m-4 0h8" stroke="currentColor" stroke-width="1.5"/>' },
   { id: 'door', label: 'Door', emoji: '🚪', svg: '<rect x="7" y="2" width="10" height="20" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="15" cy="13" r="1" fill="currentColor"/>' },
   { id: 'window', label: 'Window', emoji: '🪟', svg: '<rect x="3" y="6" width="18" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 6v12M3 12h18" stroke="currentColor" stroke-width="1"/><path d="M3 6h18" stroke="#60a5fa" stroke-width="2"/>' },
+  { id: 'water-fountain', label: 'Water Fountain', emoji: '🚰', svg: '<path d="M8 18h8M12 18v-4" stroke="currentColor" stroke-width="1.5"/><path d="M8 14c0-3 2-5 4-7 2 2 4 4 4 7" fill="none" stroke="#0ea5e9" stroke-width="1.5"/><path d="M10 11c0-1 1-2 2-3 1 1 2 2 2 3" fill="#0ea5e9" opacity="0.2"/>' },
+  { id: 'kitchen', label: 'Kitchen', emoji: '🍳', svg: '<rect x="3" y="6" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="13" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="16" cy="13" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="12" cy="10" r="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M3 8h18" stroke="currentColor" stroke-width="1"/>' },
+  { id: 'vending', label: 'Vending Machine', emoji: '🥤', svg: '<rect x="5" y="2" width="14" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="7" y="4" width="10" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1"/><rect x="8" y="14" width="4" height="3" rx="0.5" fill="currentColor" opacity="0.2"/><circle cx="16" cy="15.5" r="1" fill="none" stroke="currentColor" stroke-width="1"/>' },
+  { id: 'wifi', label: 'WiFi Access Point', emoji: '📶', svg: '<circle cx="12" cy="18" r="1.5" fill="currentColor"/><path d="M8 14c2.2-2.2 5.8-2.2 8 0" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 11c3.9-3.9 10.1-3.9 14 0" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M2 8c5.5-5.5 14.5-5.5 20 0" fill="none" stroke="currentColor" stroke-width="1.5"/>' },
+  { id: 'security-camera', label: 'Security Camera', emoji: '📹', svg: '<circle cx="12" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 11v3M8 14h8M12 14v4" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="18" width="6" height="3" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="12" cy="8" r="1" fill="currentColor"/>' },
+  { id: 'parking-spot', label: 'Parking Spot', emoji: '🅿️', svg: '<rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9" fill="none" stroke="currentColor" stroke-width="2"/>' },
+  { id: 'bike-rack', label: 'Bike Rack', emoji: '🚲', svg: '<circle cx="7" cy="15" r="4" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="17" cy="15" r="4" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7 15l5-8 5 8M9 7h4" fill="none" stroke="currentColor" stroke-width="1.3"/>' },
+  { id: 'charging', label: 'Charging Station', emoji: '🔌', svg: '<rect x="6" y="4" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 9l-2 3h4l-2 3" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/><path d="M9 4V2M15 4V2" stroke="currentColor" stroke-width="1.5"/>' },
+  { id: 'mail', label: 'Mailroom', emoji: '📬', svg: '<rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 8l9 5 9-5" fill="none" stroke="currentColor" stroke-width="1.5"/>' },
+  { id: 'shower', label: 'Shower', emoji: '🚿', svg: '<circle cx="12" cy="5" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 8l-1 4M16 8l1 4M9 12l3 9M15 12l-3 9" fill="none" stroke="#0ea5e9" stroke-width="1.2"/><path d="M10 16h4" stroke="#0ea5e9" stroke-width="1"/>' },
+  { id: 'smoking', label: 'Smoking Area', emoji: '🚬', svg: '<rect x="3" y="12" width="14" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M17 12v-3c0-2 2-3 2-5M20 12v-3c0-2 2-3 2-5" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="3" y="13.5" width="6" height="1" fill="#f97316" opacity="0.5"/>' },
 ];
 
 const FURNITURE_ASSETS: { id: string; label: string; icon: string; svg: string; w: number; h: number; color: string }[] = [
@@ -98,6 +111,16 @@ const FURNITURE_ASSETS: { id: string; label: string; icon: string; svg: string; 
   { id: 'whiteboard', label: 'Whiteboard', icon: 'WB', svg: '<rect x="2" y="4" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 8h12M6 11h8" stroke="currentColor" stroke-width="1" opacity="0.4"/><path d="M12 18v3M8 21h8" stroke="currentColor" stroke-width="1.3"/>', w: 40, h: 5, color: '#e5e7eb' },
   { id: 'tv-screen', label: 'TV/Screen', icon: 'TV', svg: '<rect x="2" y="4" width="20" height="13" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 17v2M16 17v2M6 19h12" stroke="currentColor" stroke-width="1.3"/><path d="M7 8l4 3-4 3" fill="currentColor" opacity="0.3"/>', w: 35, h: 5, color: '#1f2937' },
   { id: 'bin', label: 'Waste Bin', icon: 'Bn', svg: '<path d="M6 6h12l-1 14H7L6 6z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 6h16" stroke="currentColor" stroke-width="1.5"/><path d="M9 3h6v3H9z" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M10 9v8M14 9v8" stroke="currentColor" stroke-width="1" opacity="0.4"/>', w: 8, h: 8, color: '#6b7280' },
+  // Meeting & collaboration
+  { id: 'conference-table', label: 'Conference Table', icon: 'CT', svg: '<ellipse cx="12" cy="12" rx="10" ry="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 9h12M6 15h12" stroke="currentColor" stroke-width="0.8" opacity="0.3"/>', w: 80, h: 50, color: '#78350f' },
+  { id: 'monitor-arm', label: 'Monitor Arm', icon: 'MA', svg: '<rect x="6" y="4" width="12" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 12v4M8 16h8" stroke="currentColor" stroke-width="1.5"/><rect x="7" y="5" width="10" height="6" rx="0.5" fill="#3b82f6" opacity="0.15"/>', w: 15, h: 10, color: '#1e293b' },
+  { id: 'chair-office', label: 'Office Chair', icon: 'Ch', svg: '<circle cx="12" cy="18" r="3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M12 15v-3" stroke="currentColor" stroke-width="1.5"/><path d="M7 8c0-2.8 2.2-5 5-5s5 2.2 5 5v4H7V8z" fill="none" stroke="currentColor" stroke-width="1.5"/>', w: 12, h: 12, color: '#1e293b' },
+  { id: 'recycling', label: 'Recycling Bin', icon: 'Rc', svg: '<path d="M6 6h12l-1 14H7L6 6z" fill="none" stroke="#16a34a" stroke-width="1.5"/><path d="M4 6h16" stroke="#16a34a" stroke-width="1.5"/><path d="M9 10l3 2-3 2M15 10l-3 2 3 2" stroke="#16a34a" stroke-width="1" opacity="0.5"/>', w: 8, h: 8, color: '#16a34a' },
+  { id: 'coat-rack', label: 'Coat Rack', icon: 'CR', svg: '<circle cx="12" cy="4" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 6v14M8 20h8" stroke="currentColor" stroke-width="1.5"/><path d="M7 9l5 2 5-2" fill="none" stroke="currentColor" stroke-width="1.5"/>', w: 8, h: 8, color: '#78716c' },
+  { id: 'umbrella-stand', label: 'Umbrella Stand', icon: 'US', svg: '<path d="M12 4c-5 0-8 4-8 8h16c0-4-3-8-8-8z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 4v12M12 16c0 2-2 3-3 2" fill="none" stroke="currentColor" stroke-width="1.5"/>', w: 8, h: 8, color: '#6b7280' },
+  { id: 'water-cooler', label: 'Water Cooler', icon: 'WC', svg: '<rect x="7" y="8" width="10" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 8V5c0-1 1-2 3-2s3 1 3 2v3" fill="none" stroke="#0ea5e9" stroke-width="1.3"/><circle cx="12" cy="15" r="1.5" fill="#0ea5e9" opacity="0.3"/><rect x="9" y="10" width="6" height="3" rx="0.5" fill="#0ea5e9" opacity="0.15"/>', w: 10, h: 10, color: '#0ea5e9' },
+  { id: 'fire-extinguisher', label: 'Fire Extinguisher', icon: 'FE', svg: '<rect x="8" y="6" width="8" height="14" rx="3" fill="none" stroke="#dc2626" stroke-width="1.5"/><path d="M10 6V4h4v2" fill="none" stroke="#dc2626" stroke-width="1.3"/><path d="M12 4l3-2" fill="none" stroke="#dc2626" stroke-width="1.3"/><rect x="10" y="9" width="4" height="2" rx="0.5" fill="#dc2626" opacity="0.2"/>', w: 6, h: 6, color: '#dc2626' },
+  { id: 'locker-unit', label: 'Locker Unit', icon: 'LU', svg: '<rect x="2" y="3" width="5" height="9" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="2" y="12" width="5" height="9" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="9.5" y="3" width="5" height="9" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="9.5" y="12" width="5" height="9" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="17" y="3" width="5" height="9" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="17" y="12" width="5" height="9" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="5.5" cy="7.5" r="0.6" fill="currentColor"/><circle cx="5.5" cy="16.5" r="0.6" fill="currentColor"/><circle cx="13" cy="7.5" r="0.6" fill="currentColor"/><circle cx="13" cy="16.5" r="0.6" fill="currentColor"/><circle cx="20.5" cy="7.5" r="0.6" fill="currentColor"/><circle cx="20.5" cy="16.5" r="0.6" fill="currentColor"/>', w: 45, h: 20, color: '#64748b' },
 ];
 
 // Conjoined desk layouts — each defines a grid of desks placed as a group
@@ -149,6 +172,73 @@ const DEFAULT_EDITOR_STATE: EditorState = {
   snapEnabled: true,
   gridSize: 20,
 };
+
+function computeSnap(
+  draggedRect: { x: number; y: number; w: number; h: number },
+  otherRects: { x: number; y: number; w: number; h: number }[],
+  threshold: number = 5,
+): { snappedX: number; snappedY: number; guides: { type: 'h' | 'v'; pos: number }[] } {
+  let snappedX = draggedRect.x;
+  let snappedY = draggedRect.y;
+  const guides: { type: 'h' | 'v'; pos: number }[] = [];
+
+  const dragCx = draggedRect.x + draggedRect.w / 2;
+  const dragCy = draggedRect.y + draggedRect.h / 2;
+  const dragRight = draggedRect.x + draggedRect.w;
+  const dragBottom = draggedRect.y + draggedRect.h;
+
+  let bestDx = threshold + 1;
+  let bestDy = threshold + 1;
+
+  for (const other of otherRects) {
+    const otherCx = other.x + other.w / 2;
+    const otherCy = other.y + other.h / 2;
+    const otherRight = other.x + other.w;
+    const otherBottom = other.y + other.h;
+
+    // Vertical alignment checks (x-axis snapping)
+    const vChecks = [
+      { dragVal: draggedRect.x, otherVal: other.x },
+      { dragVal: draggedRect.x, otherVal: otherRight },
+      { dragVal: dragRight, otherVal: other.x },
+      { dragVal: dragRight, otherVal: otherRight },
+      { dragVal: dragCx, otherVal: otherCx },
+    ];
+
+    for (const { dragVal, otherVal } of vChecks) {
+      const diff = Math.abs(dragVal - otherVal);
+      if (diff < threshold && diff < bestDx) {
+        bestDx = diff;
+        snappedX = draggedRect.x + (otherVal - dragVal);
+        const existingV = guides.filter(g => g.type !== 'v');
+        guides.length = 0;
+        guides.push(...existingV, { type: 'v', pos: otherVal });
+      }
+    }
+
+    // Horizontal alignment checks (y-axis snapping)
+    const hChecks = [
+      { dragVal: draggedRect.y, otherVal: other.y },
+      { dragVal: draggedRect.y, otherVal: otherBottom },
+      { dragVal: dragBottom, otherVal: other.y },
+      { dragVal: dragBottom, otherVal: otherBottom },
+      { dragVal: dragCy, otherVal: otherCy },
+    ];
+
+    for (const { dragVal, otherVal } of hChecks) {
+      const diff = Math.abs(dragVal - otherVal);
+      if (diff < threshold && diff < bestDy) {
+        bestDy = diff;
+        snappedY = draggedRect.y + (otherVal - dragVal);
+        const existingH = guides.filter(g => g.type !== 'h');
+        guides.length = 0;
+        guides.push(...existingH, { type: 'h', pos: otherVal });
+      }
+    }
+  }
+
+  return { snappedX, snappedY, guides };
+}
 
 export default function EditorPage() {
   const { floorplanId } = useParams<{ floorplanId: string }>();
@@ -279,6 +369,21 @@ export default function EditorPage() {
   const [editorSearchQuery, setEditorSearchQuery] = useState('');
   const [editorSearchOpen, setEditorSearchOpen] = useState(false);
 
+  // Toast notifications
+  const { toasts, showToast } = useToast();
+
+  // Clipboard for copy/paste
+  const clipboardRef = useRef<MapObject | null>(null);
+
+  // Context menu
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; objectId: string } | null>(null);
+
+  // Search highlight flash
+  const [highlightObjectId, setHighlightObjectId] = useState<string | null>(null);
+
+  // Keyboard shortcuts help
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+
   // Wall drawing state — use ref for wallStart to avoid stale closure in useCallback
   const wallStartRef = useRef<{ x: number; y: number } | null>(null);
   const [wallStart, setWallStart_] = useState<{ x: number; y: number } | null>(null);
@@ -326,6 +431,7 @@ export default function EditorPage() {
   const [resizing, setResizing] = useState<{ objectId: string; handle: Handle; startX: number; startY: number; origX: number; origY: number; origW: number; origH: number } | null>(null);
   const [drawing, setDrawing] = useState<{ objectId: string; startX: number; startY: number } | null>(null);
   const [editing, setEditing] = useState<{ objectId: string; value: string } | null>(null);
+  const [snapGuides, setSnapGuides] = useState<{ type: 'h' | 'v'; pos: number }[]>([]);
 
   // Auto-save timer
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -333,13 +439,14 @@ export default function EditorPage() {
   // ── Coordinate conversion (FloorplanEditor pattern) ─────────────────
   function toSvgCoords(clientX: number, clientY: number): { x: number; y: number } {
     if (!svgRef.current) return { x: 0, y: 0 };
-    const pt = svgRef.current.createSVGPoint();
-    pt.x = clientX;
-    pt.y = clientY;
-    const ctm = svgRef.current.getScreenCTM();
-    if (!ctm) return { x: 0, y: 0 };
-    const svgPt = pt.matrixTransform(ctm.inverse());
-    return { x: Math.round(svgPt.x), y: Math.round(svgPt.y) };
+    const rect = svgRef.current.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
+    const vb = svgRef.current.viewBox.baseVal;
+    // SVG has no explicit height so aspect ratio is preserved: scale = rect.width / vb.width
+    const scale = rect.width / vb.width;
+    const x = (clientX - rect.left) / scale;
+    const y = (clientY - rect.top) / scale;
+    return { x: Math.round(x), y: Math.round(y) };
   }
 
   // ── Load background image dimensions ────────────────────────────────
@@ -436,9 +543,10 @@ export default function EditorPage() {
       await saveCanvasState(floorplanId, stateToSave);
       setDirty(false);
       setLastSaved(new Date());
+      showToast('Changes saved', 'success');
     } catch (err) {
       console.error('Save failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to save. Try again.');
+      showToast(err instanceof Error ? err.message : 'Failed to save', 'error');
     } finally {
       setSaving(false);
     }
@@ -463,16 +571,18 @@ export default function EditorPage() {
 
   const handleObjectDelete = useCallback(
     async (id: string) => {
+      const obj = objects.find(o => o.id === id);
       setObjects((prev) => prev.filter((o) => o.id !== id));
       if (selectedObjectId === id) setSelectedObjectId(null);
       setDirty(true);
+      showToast(`Deleted ${obj?.label || 'object'}`, 'info');
       try {
         await deleteObject(id);
       } catch {
         // could revert
       }
     },
-    [selectedObjectId],
+    [selectedObjectId, objects, showToast],
   );
 
   const handleBulkUpdate = useCallback(
@@ -798,8 +908,8 @@ export default function EditorPage() {
             setDirty(true);
           }).catch(console.error);
         }
-        // Chain — next wall starts from this end point
-        setWallStart({ x: wx, y: wy });
+        // Reset — wall segment complete, next click starts a new wall
+        setWallStart(null);
         setWallPreview(null);
       }
       e.preventDefault();
@@ -1005,12 +1115,30 @@ export default function EditorPage() {
     if (dragging) {
       const obj = objects.find((o) => o.id === dragging.objectId);
       if (!obj) return;
-      const newX = Math.max(0, x - dragging.offsetX);
-      const newY = Math.max(0, y - dragging.offsetY);
+      const rawX = Math.max(0, x - dragging.offsetX);
+      const rawY = Math.max(0, y - dragging.offsetY);
+      const w = obj.geometry.width ?? 0;
+      const h = obj.geometry.height ?? 0;
+
+      const otherRects = objects
+        .filter((o) => o.id !== dragging.objectId && o.visible)
+        .map((o) => ({
+          x: o.geometry.x ?? 0,
+          y: o.geometry.y ?? 0,
+          w: o.geometry.width ?? 0,
+          h: o.geometry.height ?? 0,
+        }));
+
+      const { snappedX, snappedY, guides } = computeSnap(
+        { x: rawX, y: rawY, w, h },
+        otherRects,
+      );
+      setSnapGuides(guides);
+
       setObjects((prev) =>
         prev.map((o) =>
           o.id === dragging.objectId
-            ? { ...o, geometry: { ...o.geometry, x: newX, y: newY } }
+            ? { ...o, geometry: { ...o.geometry, x: snappedX, y: snappedY } }
             : o,
         ),
       );
@@ -1073,6 +1201,7 @@ export default function EditorPage() {
         setDirty(true);
       }
       setDragging(null);
+      setSnapGuides([]);
     }
     if (resizing) {
       const obj = objects.find((o) => o.id === resizing.objectId);
@@ -1175,6 +1304,8 @@ export default function EditorPage() {
         setOutlinePoints([]);
         setWallStart(null);
         setWallPreview(null);
+        setContextMenu(null);
+        setShowShortcutsHelp(false);
         if (activeTool === 'wall') setActiveTool('select');
         return;
       }
@@ -1182,6 +1313,67 @@ export default function EditorPage() {
         e.preventDefault();
         handleObjectDelete(selectedObjectId);
       }
+
+      // Copy (Ctrl+C)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedObjectId) {
+        const obj = objects.find(o => o.id === selectedObjectId);
+        if (obj) {
+          clipboardRef.current = JSON.parse(JSON.stringify(obj));
+          showToast(`Copied ${obj.label || 'object'}`, 'info');
+        }
+      }
+      // Paste (Ctrl+V)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && clipboardRef.current && floorplanId) {
+        e.preventDefault();
+        const src = clipboardRef.current;
+        const newGeom = { ...src.geometry };
+        if (newGeom.x != null) newGeom.x += 20;
+        if (newGeom.y != null) newGeom.y += 20;
+        const existingCount = objects.filter(o => o.object_type === src.object_type).length;
+        createObject(floorplanId, {
+          ...src,
+          id: undefined as unknown as string,
+          label: `${src.label || src.object_type} (copy)`,
+          svg_id: `${src.object_type}-${String(existingCount + 1).padStart(3, '0')}`,
+          geometry: newGeom,
+          z_index: objects.length,
+        }).then((newObj) => {
+          setObjects(prev => [...prev, newObj]);
+          setSelectedObjectId(newObj.id);
+          setDirty(true);
+          showToast(`Pasted ${newObj.label || 'object'}`, 'success');
+        }).catch(() => showToast('Paste failed', 'error'));
+      }
+      // Duplicate (Ctrl+D)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd' && selectedObjectId && floorplanId) {
+        e.preventDefault();
+        const src = objects.find(o => o.id === selectedObjectId);
+        if (src) {
+          const newGeom = { ...src.geometry };
+          if (newGeom.x != null) newGeom.x += 20;
+          if (newGeom.y != null) newGeom.y += 20;
+          const existingCount = objects.filter(o => o.object_type === src.object_type).length;
+          createObject(floorplanId, {
+            ...src,
+            id: undefined as unknown as string,
+            label: `${src.label || src.object_type} (copy)`,
+            svg_id: `${src.object_type}-${String(existingCount + 1).padStart(3, '0')}`,
+            geometry: newGeom,
+            z_index: objects.length,
+          }).then((newObj) => {
+            setObjects(prev => [...prev, newObj]);
+            setSelectedObjectId(newObj.id);
+            setDirty(true);
+            showToast(`Duplicated ${src.label || 'object'}`, 'success');
+          }).catch(() => showToast('Duplicate failed', 'error'));
+        }
+      }
+
+      // Keyboard shortcuts help (?)
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        setShowShortcutsHelp(prev => !prev);
+      }
+
       // Tool shortcuts (single key, no modifier)
       if (!e.ctrlKey && !e.metaKey && !e.altKey) {
         switch (e.key.toLowerCase()) {
@@ -1190,10 +1382,9 @@ export default function EditorPage() {
           case 'p': setActiveTool('pen'); setWallStart(null); setWallPreview(null); break;
           case 'w': setActiveTool('wall'); setPlacingAmenity(null); setPlacingFurniture(null); setPlacingDeskLayout(null); break;
           case 'g': setEditorState(prev => ({ ...prev, gridEnabled: !prev.gridEnabled })); break;
-          // Ctrl+F handled below for search
         }
       }
-      // Ctrl+F = Search (focus search input if it exists)
+      // Ctrl+F = Search
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault();
         const searchInput = document.querySelector('.editor-search-input') as HTMLInputElement;
@@ -1211,7 +1402,7 @@ export default function EditorPage() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [selectedObjectId, editing, handleObjectDelete, handleUndo, handleRedo]);
+  }, [selectedObjectId, editing, handleObjectDelete, handleUndo, handleRedo, objects, floorplanId, showToast]);
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -1830,12 +2021,18 @@ export default function EditorPage() {
                       onMouseDown={() => {
                         setSelectedObjectId(o.id);
                         setEditorSearchQuery('');
-                        // Scroll to the object
+                        // Scroll to the object and flash highlight
                         if (containerRef.current && o.geometry.x != null && o.geometry.y != null) {
                           const cx = o.geometry.x * zoom;
                           const cy = o.geometry.y * zoom;
-                          containerRef.current.scrollTo({ left: cx - 300, top: cy - 200, behavior: 'smooth' });
+                          containerRef.current.scrollTo({
+                            left: cx - containerRef.current.clientWidth / 2,
+                            top: cy - containerRef.current.clientHeight / 2,
+                            behavior: 'smooth',
+                          });
                         }
+                        setHighlightObjectId(o.id);
+                        setTimeout(() => setHighlightObjectId(null), 1500);
                       }}
                     >
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: TYPE_COLORS[o.object_type] ?? '#6b7280', flexShrink: 0 }} />
@@ -1911,7 +2108,33 @@ export default function EditorPage() {
             minHeight: 0,
           }}
           onWheel={handleWheel}
-          onContextMenu={(e) => e.preventDefault()}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            if (editorMode !== 'design') return;
+            const { x, y } = toSvgCoords(e.clientX, e.clientY);
+            // Hit test objects in reverse order (top-most first)
+            for (let i = visibleObjects.length - 1; i >= 0; i--) {
+              const obj = visibleObjects[i];
+              const g = obj.geometry;
+              if (g.type === 'rect') {
+                const rx = g.x ?? 0, ry = g.y ?? 0, rw = g.width ?? 0, rh = g.height ?? 0;
+                if (x >= rx && x <= rx + rw && y >= ry && y <= ry + rh) {
+                  setSelectedObjectId(obj.id);
+                  setContextMenu({ x: e.clientX, y: e.clientY, objectId: obj.id });
+                  return;
+                }
+              }
+              if (g.type === 'circle') {
+                const dx = x - (g.x ?? 0), dy = y - (g.y ?? 0);
+                if (dx * dx + dy * dy <= ((g.r ?? 12) * (g.r ?? 12))) {
+                  setSelectedObjectId(obj.id);
+                  setContextMenu({ x: e.clientX, y: e.clientY, objectId: obj.id });
+                  return;
+                }
+              }
+            }
+            setContextMenu(null);
+          }}
         >
           <svg
             ref={svgRef}
@@ -1979,6 +2202,44 @@ export default function EditorPage() {
               />
             )}
 
+            {/* Wall outlines around rooms — rendered first so they appear beneath room fills */}
+            {visibleObjects
+              .filter(o => o.object_type === 'room' && o.geometry)
+              .map(obj => {
+                const geom = obj.geometry;
+                const wallW = Math.max(3, strokeW * 2.5);
+                if (geom.type === 'rect') {
+                  return (
+                    <rect
+                      key={`wall-${obj.id}`}
+                      x={(geom.x ?? 0)} y={(geom.y ?? 0)}
+                      width={geom.width ?? 50} height={geom.height ?? 50}
+                      fill="none"
+                      stroke="#1a1a1a"
+                      strokeWidth={wallW}
+                      strokeLinejoin="miter"
+                      rx={0}
+                      style={{ pointerEvents: 'none' }}
+                    />
+                  );
+                }
+                if (geom.type === 'polygon' && geom.points) {
+                  const pts = geom.points.map(p => `${p.x},${p.y}`).join(' ');
+                  return (
+                    <polygon
+                      key={`wall-${obj.id}`}
+                      points={pts}
+                      fill="none"
+                      stroke="#1a1a1a"
+                      strokeWidth={wallW}
+                      strokeLinejoin="miter"
+                      style={{ pointerEvents: 'none' }}
+                    />
+                  );
+                }
+                return null;
+              })}
+
             {/* Render map objects as colored rectangles with labels */}
             {visibleObjects.map((obj) => {
               const geom = obj.geometry;
@@ -1986,6 +2247,7 @@ export default function EditorPage() {
 
               const effectiveOpacity = obj.opacity * (layerOpacity.get(obj.layer) ?? 1);
               const isSelected = obj.id === selectedObjectId;
+              const isHighlighted = obj.id === highlightObjectId;
               const availColor =
                 availabilityEnabled && availabilityStates[obj.id]
                   ? getAvailabilityColor(availabilityStates[obj.id])
@@ -2080,6 +2342,17 @@ export default function EditorPage() {
                       >
                         {availabilityStates[obj.id].replace(/-/g, ' ').toUpperCase()}
                       </text>
+                    )}
+
+                    {/* Search highlight flash */}
+                    {isHighlighted && (
+                      <rect
+                        data-ui-only="true"
+                        x={rx - 3} y={ry - 3} width={rw + 6} height={rh + 6}
+                        fill="none" stroke="#f59e0b" strokeWidth={strokeW * 2.5}
+                        rx={6}
+                        style={{ pointerEvents: 'none', animation: 'search-flash 0.5s ease-in-out 3' }}
+                      />
                     )}
 
                     {/* 8-directional resize handles when selected */}
@@ -2231,6 +2504,21 @@ export default function EditorPage() {
                 )}
               </g>
             )}
+
+            {/* Snap alignment guides */}
+            {snapGuides.map((guide, i) => (
+              guide.type === 'v' ? (
+                <line key={`snap-${i}`} data-ui-only="true"
+                  x1={guide.pos} y1={0} x2={guide.pos} y2={canvasH}
+                  stroke="#ff3366" strokeWidth={1} strokeDasharray="4 4"
+                  style={{ pointerEvents: 'none' }} />
+              ) : (
+                <line key={`snap-${i}`} data-ui-only="true"
+                  x1={0} y1={guide.pos} x2={canvasW} y2={guide.pos}
+                  stroke="#ff3366" strokeWidth={1} strokeDasharray="4 4"
+                  style={{ pointerEvents: 'none' }} />
+              )
+            ))}
           </svg>
 
           {/* Inline rename input (positioned over SVG using screen coordinates) */}
@@ -2261,6 +2549,18 @@ export default function EditorPage() {
             );
           })()}
         </div>
+
+        {/* Minimap — fixed position over canvas area */}
+        {editorMode === 'design' && (
+          <Minimap
+            objects={objects}
+            canvasW={canvasW}
+            canvasH={canvasH}
+            containerRef={containerRef}
+            zoom={zoom}
+            floorplanId={floorplanId ?? undefined}
+          />
+        )}
 
         {/* Right sidebar: Properties Panel (design mode) */}
         {editorMode === 'design' && (
@@ -3324,8 +3624,151 @@ export default function EditorPage() {
           <span>{floorplan.floor_name} v{floorplan.version}</span>
           {dirty && <span style={{ color: '#d97706', fontWeight: 600 }}>Unsaved</span>}
           {!dirty && lastSaved && <span style={{ color: 'var(--color-success)' }}>Saved</span>}
+          <span style={{ width: 1, height: 12, background: 'var(--color-border)' }} />
+          <button
+            onClick={() => setShowShortcutsHelp(true)}
+            style={{ border: '1px solid var(--color-border)', background: 'none', borderRadius: 4, width: 22, height: 22, cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            title="Keyboard shortcuts (?)"
+          >?</button>
         </span>
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 99998 }} onClick={() => setContextMenu(null)} />
+          <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}>
+            <button className="context-menu-item" onClick={() => {
+              const obj = objects.find(o => o.id === contextMenu.objectId);
+              if (obj) { clipboardRef.current = JSON.parse(JSON.stringify(obj)); showToast(`Copied ${obj.label || 'object'}`, 'info'); }
+              setContextMenu(null);
+            }}>
+              <span>Copy</span><span className="context-menu-shortcut">{'\u2318'}C</span>
+            </button>
+            <button className="context-menu-item" onClick={() => {
+              const src = objects.find(o => o.id === contextMenu.objectId);
+              if (src && floorplanId) {
+                const newGeom = { ...src.geometry };
+                if (newGeom.x != null) newGeom.x += 20;
+                if (newGeom.y != null) newGeom.y += 20;
+                const cnt = objects.filter(o => o.object_type === src.object_type).length;
+                createObject(floorplanId, { ...src, id: undefined as unknown as string, label: `${src.label || src.object_type} (copy)`, svg_id: `${src.object_type}-${String(cnt + 1).padStart(3, '0')}`, geometry: newGeom, z_index: objects.length })
+                  .then(n => { setObjects(prev => [...prev, n]); setSelectedObjectId(n.id); setDirty(true); showToast(`Duplicated ${src.label || 'object'}`, 'success'); });
+              }
+              setContextMenu(null);
+            }}>
+              <span>Duplicate</span><span className="context-menu-shortcut">{'\u2318'}D</span>
+            </button>
+            <div className="context-menu-sep" />
+            <button className="context-menu-item" onClick={() => {
+              const obj = objects.find(o => o.id === contextMenu.objectId);
+              if (obj) {
+                const maxZ = Math.max(...objects.map(o => o.z_index ?? 0));
+                handleObjectChange(contextMenu.objectId, { z_index: maxZ + 1 });
+                showToast('Brought to front', 'info');
+              }
+              setContextMenu(null);
+            }}>
+              <span>Bring to Front</span>
+            </button>
+            <button className="context-menu-item" onClick={() => {
+              const obj = objects.find(o => o.id === contextMenu.objectId);
+              if (obj) {
+                const minZ = Math.min(...objects.map(o => o.z_index ?? 0));
+                handleObjectChange(contextMenu.objectId, { z_index: minZ - 1 });
+                showToast('Sent to back', 'info');
+              }
+              setContextMenu(null);
+            }}>
+              <span>Send to Back</span>
+            </button>
+            <div className="context-menu-sep" />
+            <button className="context-menu-item" onClick={() => {
+              const obj = objects.find(o => o.id === contextMenu.objectId);
+              if (obj) handleObjectChange(contextMenu.objectId, { locked: !obj.locked });
+              setContextMenu(null);
+            }}>
+              <span>{objects.find(o => o.id === contextMenu.objectId)?.locked ? 'Unlock' : 'Lock'}</span>
+            </button>
+            <button className="context-menu-item context-menu-item--danger" onClick={() => {
+              handleObjectDelete(contextMenu.objectId);
+              setContextMenu(null);
+            }}>
+              <span>Delete</span><span className="context-menu-shortcut">Del</span>
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Keyboard Shortcuts Help Modal */}
+      {showShortcutsHelp && (
+        <div className="shortcuts-backdrop" onClick={() => setShowShortcutsHelp(false)}>
+          <div className="shortcuts-panel" onClick={e => e.stopPropagation()}>
+            <div className="shortcuts-title">
+              <h2>Keyboard Shortcuts</h2>
+              <button className="shortcuts-close" onClick={() => setShowShortcutsHelp(false)}>&times;</button>
+            </div>
+
+            <div className="shortcuts-group">
+              <div className="shortcuts-group-title">Tools</div>
+              {[['V', 'Select'], ['R', 'Rectangle'], ['P', 'Polygon'], ['W', 'Wall'], ['G', 'Toggle Grid']].map(([key, label]) => (
+                <div key={key} className="shortcut-row">
+                  <span>{label}</span>
+                  <div className="shortcut-keys"><kbd>{key}</kbd></div>
+                </div>
+              ))}
+            </div>
+
+            <div className="shortcuts-group">
+              <div className="shortcuts-group-title">Actions</div>
+              {[
+                ['\u2318 S', 'Save'],
+                ['\u2318 Z', 'Undo'],
+                ['\u2318 \u21E7 Z', 'Redo'],
+                ['Del', 'Delete selected'],
+              ].map(([key, label]) => (
+                <div key={key} className="shortcut-row">
+                  <span>{label}</span>
+                  <div className="shortcut-keys"><kbd>{key}</kbd></div>
+                </div>
+              ))}
+            </div>
+
+            <div className="shortcuts-group">
+              <div className="shortcuts-group-title">Clipboard</div>
+              {[
+                ['\u2318 C', 'Copy'],
+                ['\u2318 V', 'Paste'],
+                ['\u2318 D', 'Duplicate'],
+              ].map(([key, label]) => (
+                <div key={key} className="shortcut-row">
+                  <span>{label}</span>
+                  <div className="shortcut-keys"><kbd>{key}</kbd></div>
+                </div>
+              ))}
+            </div>
+
+            <div className="shortcuts-group">
+              <div className="shortcuts-group-title">View</div>
+              {[
+                ['\u2318 F', 'Search'],
+                ['Esc', 'Deselect / Cancel'],
+                ['\u2318 Scroll', 'Zoom'],
+                ['Shift', 'Straight lines (wall)'],
+                ['?', 'This help panel'],
+              ].map(([key, label]) => (
+                <div key={key} className="shortcut-row">
+                  <span>{label}</span>
+                  <div className="shortcut-keys"><kbd>{key}</kbd></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} />
     </div>
   );
 }

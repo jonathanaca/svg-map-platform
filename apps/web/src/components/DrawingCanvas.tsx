@@ -98,6 +98,8 @@ export default function DrawingCanvas({
   const [currentPathType, setCurrentPathType] = useState<'outline' | 'wall' | null>(null);
   const [cursorPos, setCursorPos] = useState<PathPoint | null>(null);
   const [rectDraw, setRectDraw] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
+  const [wallExtendId, setWallExtendId] = useState<string | null>(null);
+  const [wallExtendEnd, setWallExtendEnd] = useState<'first' | 'last' | null>(null);
   const [labelInput, setLabelInput] = useState<{ shapeId: string; x: number; y: number; value: string } | null>(null);
 
   // Drag state for select tool
@@ -319,6 +321,8 @@ export default function DrawingCanvas({
     setCurrentPathType(null);
     setCursorPos(null);
     setRectDraw(null);
+    setWallExtendId(null);
+    setWallExtendEnd(null);
   }
 
   function deleteSelected() {
@@ -547,26 +551,75 @@ export default function DrawingCanvas({
   function handleWallClick(imgPoint: PathPoint) {
     if (currentPathType === 'outline') return;
 
+    const SNAP_THRESHOLD = (12 / transform.scale) ** 2;
+
     if (currentPath.length === 0) {
+      // Check if clicking near an existing wall endpoint to extend it
+      for (let i = wallPaths.length - 1; i >= 0; i--) {
+        const wall = wallPaths[i];
+        const firstPt = wall.points[0];
+        const lastPt = wall.points[wall.points.length - 1];
+
+        if (distanceSq(imgPoint, lastPt) < SNAP_THRESHOLD) {
+          // Snap to the last point — will extend from end
+          setCurrentPath([lastPt]);
+          setCurrentPathType('wall');
+          setWallExtendId(wall.id);
+          setWallExtendEnd('last');
+          return;
+        }
+        if (distanceSq(imgPoint, firstPt) < SNAP_THRESHOLD) {
+          // Snap to the first point — will extend from start
+          setCurrentPath([firstPt]);
+          setCurrentPathType('wall');
+          setWallExtendId(wall.id);
+          setWallExtendEnd('first');
+          return;
+        }
+      }
+
+      // Not near any endpoint — start a new wall
       setCurrentPath([imgPoint]);
       setCurrentPathType('wall');
+      setWallExtendId(null);
+      setWallExtendEnd(null);
       return;
     }
 
-    setCurrentPath(prev => [...prev, imgPoint]);
+    // Second click — finish the wall segment
+    if (currentPath.length >= 1 && currentPathType === 'wall') {
+      pushHistory();
+
+      if (wallExtendId) {
+        // Extending an existing wall
+        const updated = wallPaths.map(w => {
+          if (w.id !== wallExtendId) return w;
+          if (wallExtendEnd === 'last') {
+            return { ...w, points: [...w.points, imgPoint] };
+          } else {
+            return { ...w, points: [imgPoint, ...w.points] };
+          }
+        });
+        onWallChange(updated);
+        setSelectedId(wallExtendId);
+      } else {
+        // New wall segment
+        const newPath: PathData = { id: generateId(), points: [...currentPath, imgPoint], closed: false };
+        onWallChange([...wallPaths, newPath]);
+        setSelectedId(newPath.id);
+      }
+
+      setCurrentPath([]);
+      setCurrentPathType(null);
+      setWallExtendId(null);
+      setWallExtendEnd(null);
+      setSelectedType('wall');
+    }
   }
 
   function handleWallDoubleClick() {
-    if (currentPath.length >= 2 && currentPathType === 'wall') {
-      pushHistory();
-      const newPath: PathData = { id: generateId(), points: [...currentPath], closed: false };
-      onWallChange([...wallPaths, newPath]);
-      setCurrentPath([]);
-      setCurrentPathType(null);
-      setActiveTool('select');
-      setSelectedId(newPath.id);
-      setSelectedType('wall');
-    }
+    // No longer needed — walls auto-complete after 2 points
+    // Kept as no-op so double-click doesn't trigger other handlers
   }
 
   function handleRectMouseDown(imgPoint: PathPoint) {
@@ -659,8 +712,8 @@ export default function DrawingCanvas({
       return;
     }
 
-    // Cursor tracking for pen/wall preview line
-    if ((activeTool === 'pen' || activeTool === 'wall') && currentPath.length > 0) {
+    // Cursor tracking for pen preview line (not wall — walls auto-complete on 2nd click)
+    if (activeTool === 'pen' && currentPath.length > 0) {
       setCursorPos(imgPoint);
     } else {
       setCursorPos(null);
@@ -837,10 +890,10 @@ export default function DrawingCanvas({
                 key={path.id}
                 d={pointsToSvgPath(path.points, path.closed)}
                 fill="none"
-                stroke="#333333"
-                strokeWidth={3 / transform.scale}
-                strokeLinecap="round"
-                strokeLinejoin="round"
+                stroke="#1a1a1a"
+                strokeWidth={2 / transform.scale}
+                strokeLinecap="square"
+                strokeLinejoin="miter"
                 style={{ pointerEvents: 'none' }}
               />
             ))}
@@ -878,14 +931,14 @@ export default function DrawingCanvas({
               </g>
             ))}
 
-            {/* Currently drawing path (pen/wall preview) */}
-            {currentPath.length > 0 && (
+            {/* Currently drawing path (pen preview with cursor line) */}
+            {currentPath.length > 0 && currentPathType === 'outline' && (
               <>
                 <path
                   d={pointsToSvgPath(currentPath, false) + (cursorPos ? ` L${cursorPos.x},${cursorPos.y}` : '')}
                   fill="none"
-                  stroke={currentPathType === 'outline' ? '#4A2080' : '#333333'}
-                  strokeWidth={(currentPathType === 'outline' ? 2 : 3) / transform.scale}
+                  stroke="#4A2080"
+                  strokeWidth={2 / transform.scale}
                   strokeDasharray={`${6 / transform.scale} ${3 / transform.scale}`}
                   strokeLinejoin="round"
                   style={{ pointerEvents: 'none' }}
@@ -897,12 +950,25 @@ export default function DrawingCanvas({
                     cy={pt.y}
                     r={4 / transform.scale}
                     fill={i === 0 ? '#ef4444' : '#ffffff'}
-                    stroke={currentPathType === 'outline' ? '#4A2080' : '#333333'}
+                    stroke="#4A2080"
                     strokeWidth={1.5 / transform.scale}
                     style={{ pointerEvents: 'none' }}
                   />
                 ))}
               </>
+            )}
+
+            {/* Wall drawing preview — just the start dot, no trailing line */}
+            {currentPath.length > 0 && currentPathType === 'wall' && (
+              <circle
+                cx={currentPath[0].x}
+                cy={currentPath[0].y}
+                r={5 / transform.scale}
+                fill="#ef4444"
+                stroke="#333333"
+                strokeWidth={1.5 / transform.scale}
+                style={{ pointerEvents: 'none' }}
+              />
             )}
 
             {/* Rect drawing preview */}

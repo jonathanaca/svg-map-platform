@@ -5,13 +5,13 @@ const DEFAULT_SCALE = 0.01;
 
 export function getExtrusionHeight(objectType: MapObjectType): number {
   switch (objectType) {
-    case 'room': return 0.8;
-    case 'zone': case 'area': return 0.1;
-    case 'desk': return 0.25;
-    case 'parking': case 'locker': return 0.4;
-    case 'decorative': return 0.18;
-    case 'amenity': return 0.06;
-    default: return 0.3;
+    case 'room': return 0.15;
+    case 'zone': case 'area': return 0.04;
+    case 'desk': return 0.08;
+    case 'parking': case 'locker': return 0.1;
+    case 'decorative': return 0.06;
+    case 'amenity': return 0.03;
+    default: return 0.08;
   }
 }
 

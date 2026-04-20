@@ -9,7 +9,7 @@ interface Props {
   scale: number;
 }
 
-const WALL_HEIGHT = 1.2;
+const WALL_HEIGHT = 0.25;
 
 export default function WallMesh({ obj, canvasW, canvasH, scale }: Props) {
   const geom = obj.geometry;
@@ -48,8 +48,8 @@ export default function WallMesh({ obj, canvasW, canvasH, scale }: Props) {
   }, [geom, canvasW, canvasH, scale]);
 
   const materials = useMemo(() => [
-    new THREE.MeshLambertMaterial({ color: '#4b5563', transparent: true, opacity: 0.85 }),
-    new THREE.MeshLambertMaterial({ color: '#6b7280', transparent: true, opacity: 0.7 }),
+    new THREE.MeshLambertMaterial({ color: '#6b7280', transparent: true, opacity: 0.9 }),
+    new THREE.MeshLambertMaterial({ color: '#9ca3af', transparent: true, opacity: 0.8 }),
   ], []);
 
   if (!geometry) return null;
