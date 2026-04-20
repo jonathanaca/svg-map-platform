@@ -2795,7 +2795,7 @@ export default function EditorPage() {
             <div style={{ padding: 16, borderBottom: '1px solid var(--color-border)' }}>
               <h3 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: 12 }}>Export</h3>
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (!floorplan) return;
                   const w = canvasW;
                   const h = canvasH;
@@ -2803,14 +2803,32 @@ export default function EditorPage() {
                   // Build a clean SVG from scratch instead of cloning the canvas
                   const lines: string[] = [];
                   lines.push(`<?xml version="1.0" encoding="UTF-8"?>`);
-                  lines.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">`);
+                  lines.push(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">`);
 
                   // Background
                   lines.push(`  <rect x="0" y="0" width="${w}" height="${h}" fill="#ffffff" />`);
 
-                  // Background image
+                  // Background image — fetch and embed as base64
                   if (floorplan.source_image_path) {
-                    lines.push(`  <!-- Background image: use source-preview endpoint -->`);
+                    try {
+                      const bgResp = await fetch(`/api/floorplans/${floorplan.id}/source-preview`);
+                      if (bgResp.ok) {
+                        const ct = bgResp.headers.get('content-type') || 'image/png';
+                        if (ct.includes('svg')) {
+                          const svgText = await bgResp.text();
+                          const b64 = btoa(unescape(encodeURIComponent(svgText)));
+                          lines.push(`  <image x="0" y="0" width="${w}" height="${h}" href="data:image/svg+xml;base64,${b64}" />`);
+                        } else {
+                          const blob = await bgResp.blob();
+                          const dataUri = await new Promise<string>((resolve) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result as string);
+                            reader.readAsDataURL(blob);
+                          });
+                          lines.push(`  <image x="0" y="0" width="${w}" height="${h}" href="${dataUri}" />`);
+                        }
+                      }
+                    } catch { /* skip bg if fetch fails */ }
                   }
 
                   // Wall outlines for rooms
