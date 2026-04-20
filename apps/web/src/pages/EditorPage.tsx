@@ -2908,31 +2908,7 @@ export default function EditorPage() {
                   // Background
                   lines.push(`  <rect x="0" y="0" width="${w}" height="${h}" fill="#ffffff" />`);
 
-                  // Background image — fetch and embed as base64
-                  if (floorplan.source_image_path) {
-                    try {
-                      const bgResp = await fetch(`/api/floorplans/${floorplan.id}/source-preview`);
-                      if (bgResp.ok) {
-                        const ct = bgResp.headers.get('content-type') || 'image/png';
-                        const blob = await bgResp.blob();
-                        // Only embed if it's a real image (>1KB)
-                        if (blob.size > 1024) {
-                          if (ct.includes('svg')) {
-                            const svgText = await blob.text();
-                            const b64 = btoa(unescape(encodeURIComponent(svgText)));
-                            lines.push(`  <image x="0" y="0" width="${w}" height="${h}" href="data:image/svg+xml;base64,${b64}" xlink:href="data:image/svg+xml;base64,${b64}" opacity="0.2" />`);
-                          } else {
-                            const dataUri = await new Promise<string>((resolve) => {
-                              const reader = new FileReader();
-                              reader.onloadend = () => resolve(reader.result as string);
-                              reader.readAsDataURL(blob);
-                            });
-                            lines.push(`  <image x="0" y="0" width="${w}" height="${h}" href="${dataUri}" xlink:href="${dataUri}" opacity="0.2" />`);
-                          }
-                        }
-                      }
-                    } catch { /* skip bg if fetch fails */ }
-                  }
+                  // No background image in export — clean white canvas with objects only
 
                   // Helper: convert any color to rgba with specific opacity
                   const toFillOpacity = (hex: string, opacity: number): string => {
