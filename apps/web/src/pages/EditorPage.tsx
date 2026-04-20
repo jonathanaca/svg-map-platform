@@ -2817,7 +2817,7 @@ export default function EditorPage() {
                         if (ct.includes('svg')) {
                           const svgText = await bgResp.text();
                           const b64 = btoa(unescape(encodeURIComponent(svgText)));
-                          lines.push(`  <image x="0" y="0" width="${w}" height="${h}" href="data:image/svg+xml;base64,${b64}" />`);
+                          lines.push(`  <image x="0" y="0" width="${w}" height="${h}" href="data:image/svg+xml;base64,${b64}" opacity="0.3" />`);
                         } else {
                           const blob = await bgResp.blob();
                           const dataUri = await new Promise<string>((resolve) => {
@@ -2825,7 +2825,7 @@ export default function EditorPage() {
                             reader.onloadend = () => resolve(reader.result as string);
                             reader.readAsDataURL(blob);
                           });
-                          lines.push(`  <image x="0" y="0" width="${w}" height="${h}" href="${dataUri}" />`);
+                          lines.push(`  <image x="0" y="0" width="${w}" height="${h}" href="${dataUri}" opacity="0.3" />`);
                         }
                       }
                     } catch { /* skip bg if fetch fails */ }
