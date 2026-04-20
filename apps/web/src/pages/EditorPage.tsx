@@ -2796,21 +2796,75 @@ export default function EditorPage() {
               <h3 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: 12 }}>Export</h3>
               <button
                 onClick={() => {
-                  if (!svgRef.current || !floorplan) return;
-                  const svgEl = svgRef.current;
-                  const clone = svgEl.cloneNode(true) as SVGSVGElement;
+                  if (!floorplan) return;
                   const w = canvasW;
                   const h = canvasH;
-                  clone.setAttribute('viewBox', `0 0 ${w} ${h}`);
-                  clone.setAttribute('width', String(w));
-                  clone.setAttribute('height', String(h));
-                  clone.removeAttribute('style');
-                  clone.querySelectorAll('[data-ui-only]').forEach(el => el.remove());
-                  clone.querySelectorAll('defs').forEach(el => el.remove());
 
-                  const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' +
-                    new XMLSerializer().serializeToString(clone);
+                  // Build a clean SVG from scratch instead of cloning the canvas
+                  const lines: string[] = [];
+                  lines.push(`<?xml version="1.0" encoding="UTF-8"?>`);
+                  lines.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">`);
 
+                  // Background
+                  lines.push(`  <rect x="0" y="0" width="${w}" height="${h}" fill="#ffffff" />`);
+
+                  // Background image
+                  if (floorplan.source_image_path) {
+                    lines.push(`  <!-- Background image: use source-preview endpoint -->`);
+                  }
+
+                  // Wall outlines for rooms
+                  const roomObjs = objects.filter(o => o.object_type === 'room' && o.visible);
+                  if (roomObjs.length > 0) {
+                    lines.push(`  <g id="walls">`);
+                    for (const obj of roomObjs) {
+                      const g = obj.geometry;
+                      if (g.type === 'rect') {
+                        lines.push(`    <rect x="${g.x ?? 0}" y="${g.y ?? 0}" width="${g.width ?? 50}" height="${g.height ?? 50}" fill="none" stroke="#1a1a1a" stroke-width="2" />`);
+                      } else if (g.type === 'polygon' && g.points) {
+                        const pts = g.points.map(p => `${p.x},${p.y}`).join(' ');
+                        lines.push(`    <polygon points="${pts}" fill="none" stroke="#1a1a1a" stroke-width="2" />`);
+                      }
+                    }
+                    lines.push(`  </g>`);
+                  }
+
+                  // Render each object by type
+                  const typeOrder = ['zone', 'area', 'room', 'desk', 'locker', 'parking', 'decorative', 'amenity'];
+                  for (const objType of typeOrder) {
+                    const typeObjs = objects.filter(o => o.object_type === objType && o.visible);
+                    if (typeObjs.length === 0) continue;
+
+                    lines.push(`  <g id="${objType}s">`);
+                    for (const obj of typeObjs) {
+                      const g = obj.geometry;
+                      const fill = obj.fill_color || (TYPE_COLORS[obj.object_type] ?? '#4b5563') + '55';
+                      const stroke = obj.stroke_color || TYPE_COLORS[obj.object_type] ?? '#4b5563';
+                      const label = obj.label || '';
+                      const svgId = obj.svg_id || obj.id;
+
+                      if (g.type === 'rect') {
+                        const rx = g.x ?? 0, ry = g.y ?? 0, rw = g.width ?? 50, rh = g.height ?? 50;
+                        lines.push(`    <g id="${svgId}">`);
+                        lines.push(`      <rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" rx="2" data-type="${obj.object_type}" data-label="${label}" />`);
+                        if (label) {
+                          const fontSize = Math.max(8, Math.min(rw / 6, rh / 3, 20));
+                          lines.push(`      <text x="${rx + rw / 2}" y="${ry + rh / 2}" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="${fontSize}" font-weight="600" font-family="Arial, sans-serif">${label}</text>`);
+                        }
+                        lines.push(`    </g>`);
+                      } else if (g.type === 'polygon' && g.points) {
+                        const pts = g.points.map(p => `${p.x},${p.y}`).join(' ');
+                        lines.push(`    <polygon id="${svgId}" points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" data-type="${obj.object_type}" data-label="${label}" />`);
+                      } else if (g.type === 'circle') {
+                        lines.push(`    <circle id="${svgId}" cx="${g.x ?? 0}" cy="${g.y ?? 0}" r="${g.r ?? 10}" fill="${fill}" stroke="${stroke}" stroke-width="1" data-type="${obj.object_type}" data-label="${label}" />`);
+                      }
+                    }
+                    lines.push(`  </g>`);
+                  }
+
+                  lines.push(`</svg>`);
+
+                  const svgString = lines.join('\n');
                   const blob = new Blob([svgString], { type: 'image/svg+xml' });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
