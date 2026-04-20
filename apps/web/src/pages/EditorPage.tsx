@@ -2917,7 +2917,7 @@ export default function EditorPage() {
                         if (ct.includes('svg')) {
                           const svgText = await bgResp.text();
                           const b64 = btoa(unescape(encodeURIComponent(svgText)));
-                          lines.push(`  <image x="0" y="0" width="${w}" height="${h}" href="data:image/svg+xml;base64,${b64}" opacity="0.3" />`);
+                          lines.push(`  <image x="0" y="0" width="${w}" height="${h}" href="data:image/svg+xml;base64,${b64}" opacity="0.15" />`);
                         } else {
                           const blob = await bgResp.blob();
                           const dataUri = await new Promise<string>((resolve) => {
@@ -2925,7 +2925,7 @@ export default function EditorPage() {
                             reader.onloadend = () => resolve(reader.result as string);
                             reader.readAsDataURL(blob);
                           });
-                          lines.push(`  <image x="0" y="0" width="${w}" height="${h}" href="${dataUri}" opacity="0.3" />`);
+                          lines.push(`  <image x="0" y="0" width="${w}" height="${h}" href="${dataUri}" opacity="0.15" />`);
                         }
                       }
                     } catch { /* skip bg if fetch fails */ }
@@ -2944,9 +2944,9 @@ export default function EditorPage() {
                   const getExportFill = (obj: MapObject): string => {
                     const baseColor = TYPE_COLORS[obj.object_type] ?? '#4b5563';
                     switch (obj.object_type) {
-                      case 'room': return toFillOpacity(obj.fill_color || baseColor, 0.25);
-                      case 'desk': return toFillOpacity(obj.fill_color || baseColor, 0.35);
-                      case 'zone': case 'area': return toFillOpacity(obj.fill_color || baseColor, 0.15);
+                      case 'room': return toFillOpacity(obj.fill_color || baseColor, 0.45);
+                      case 'desk': return toFillOpacity(obj.fill_color || baseColor, 0.55);
+                      case 'zone': case 'area': return toFillOpacity(obj.fill_color || baseColor, 0.2);
                       case 'amenity': return toFillOpacity(obj.fill_color || baseColor, 0.5);
                       case 'decorative': return obj.layer === 'walls' ? '#374151' : toFillOpacity(baseColor, 0.3);
                       default: return toFillOpacity(baseColor, 0.3);
@@ -2987,7 +2987,7 @@ export default function EditorPage() {
                         lines.push(`      <rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" rx="2" data-type="${obj.object_type}" data-label="${label}" />`);
                         if (label && obj.object_type !== 'decorative') {
                           const fontSize = Math.max(8, Math.min(rw / 6, rh / 3, 16));
-                          const textFill = obj.object_type === 'room' ? '#1e293b' : '#ffffff';
+                          const textFill = '#ffffff';
                           lines.push(`      <text x="${rx + rw / 2}" y="${ry + rh / 2}" text-anchor="middle" dominant-baseline="central" fill="${textFill}" font-size="${fontSize}" font-weight="600" font-family="Arial, sans-serif">${label}</text>`);
                         }
                         lines.push(`    </g>`);
