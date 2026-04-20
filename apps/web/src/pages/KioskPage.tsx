@@ -68,6 +68,7 @@ export default function KioskPage() {
 
   // View mode: 2D (Cisco Spaces style) or 3D (isometric)
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
+  const [heatmapEnabled, setHeatmapEnabled] = useState(false);
 
   // Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -158,6 +159,19 @@ export default function KioskPage() {
             >3D</button>
           </div>
           <button
+            onClick={() => setHeatmapEnabled(!heatmapEnabled)}
+            style={{
+              padding: '5px 12px',
+              fontSize: 11,
+              fontWeight: 600,
+              border: '1px solid #30363d',
+              borderRadius: 6,
+              cursor: 'pointer',
+              background: heatmapEnabled ? '#388bfd' : '#21262d',
+              color: heatmapEnabled ? '#fff' : '#8b949e',
+            }}
+          >Heatmap</button>
+          <button
             className="kiosk-header-btn"
             onClick={() => setShowShare(!showShare)}
             title="Share"
@@ -193,6 +207,7 @@ export default function KioskPage() {
             floorplan={floorplan}
             objects={objects}
             availability={availability}
+            heatmapEnabled={heatmapEnabled}
           />
         )}
         {floorplan && viewMode === '3d' && (

@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { MapObject, Floorplan, AvailabilityState } from '@svg-map/types';
 import { STATE_COLORS } from '../../lib/availabilityColors.js';
+import HeatmapOverlay from './HeatmapOverlay.js';
 
 interface Props {
   floorplan: Floorplan;
   objects: MapObject[];
   availability: Record<string, AvailabilityState>;
+  heatmapEnabled?: boolean;
 }
 
 const STATUS_FILLS: Record<string, string> = {
@@ -33,7 +35,7 @@ const STATUS_STROKES: Record<string, string> = {
 const DEFAULT_FILL = 'rgba(100, 116, 139, 0.2)';
 const DEFAULT_STROKE = '#475569';
 
-export default function FloorPlanView2D({ floorplan, objects, availability }: Props) {
+export default function FloorPlanView2D({ floorplan, objects, availability, heatmapEnabled = false }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [imageDims, setImageDims] = useState<{ w: number; h: number } | null>(null);
@@ -336,6 +338,15 @@ export default function FloorPlanView2D({ floorplan, objects, availability }: Pr
             style={{ pointerEvents: 'none' }}
           />
         )}
+
+        {/* Heatmap overlay */}
+        <HeatmapOverlay
+          objects={objects}
+          availability={availability}
+          canvasW={canvasW}
+          canvasH={canvasH}
+          enabled={heatmapEnabled}
+        />
 
         {/* Walls */}
         {walls.map(renderWall)}

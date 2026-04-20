@@ -15,6 +15,7 @@ import {
   importObjectsCsv,
 } from '../lib/api.js';
 import PropertiesPanel from '../components/PropertiesPanel.js';
+import ObjectListPanel from '../components/ObjectListPanel.js';
 import { useToast, ToastContainer } from '../components/Toast.js';
 import LayerPanel, { DEFAULT_LAYERS } from '../components/LayerPanel.js';
 import ValidationPanel from '../components/ValidationPanel.js';
@@ -364,6 +365,7 @@ export default function EditorPage() {
 
   // Bottom panel tab state (for label mode)
   const [bottomTab, setBottomTab] = useState<'labelling' | 'validation'>('labelling');
+  const [leftSidebarTab, setLeftSidebarTab] = useState<'layers' | 'objects'>('layers');
 
   // Editor search
   const [editorSearchQuery, setEditorSearchQuery] = useState('');
@@ -1966,6 +1968,22 @@ export default function EditorPage() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
             <span className="dc-tool-label">Grid</span>
           </button>
+          {editorState.gridEnabled && (
+            <input
+              type="number"
+              min={5}
+              max={100}
+              step={5}
+              value={editorState.gridSize}
+              onChange={(e) => {
+                const v = Math.max(5, Math.min(100, Number(e.target.value) || 20));
+                setEditorState((prev) => ({ ...prev, gridSize: v }));
+                setDirty(true);
+              }}
+              title="Grid size (px)"
+              style={{ width: 40, padding: '2px 4px', fontSize: 11, borderRadius: 4, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', textAlign: 'center' }}
+            />
+          )}
           <button
             className={`dc-tool-btn ${editorState.snapEnabled ? 'dc-tool-btn--active' : ''}`}
             onClick={toggleSnap}
@@ -1983,6 +2001,90 @@ export default function EditorPage() {
           </button>
           <button className="dc-tool-btn" onClick={() => { setZoom(1); if (containerRef.current) { containerRef.current.scrollLeft = 0; containerRef.current.scrollTop = 0; } }} title="Reset zoom to 100%">Fit</button>
         </div>
+
+        {/* Alignment tools - visible when an object is selected */}
+        {selectedObjectId && (
+          <>
+            <span className="dc-toolbar-sep" />
+            <div className="dc-toolbar-group">
+              {([
+                {
+                  label: 'Align Left', title: 'Align to left edge',
+                  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" y1="2" x2="4" y2="22"/><rect x="8" y="6" width="12" height="4" rx="1"/><rect x="8" y="14" width="8" height="4" rx="1"/></svg>,
+                  action: () => {
+                    const obj = objects.find(o => o.id === selectedObjectId);
+                    if (!obj) return;
+                    handleObjectChange(selectedObjectId, { geometry: { ...obj.geometry, x: 0 } });
+                    showToast('Aligned left', 'info');
+                  },
+                },
+                {
+                  label: 'Center H', title: 'Center horizontally on canvas',
+                  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="2" x2="12" y2="22"/><rect x="6" y="6" width="12" height="4" rx="1"/><rect x="8" y="14" width="8" height="4" rx="1"/></svg>,
+                  action: () => {
+                    const obj = objects.find(o => o.id === selectedObjectId);
+                    if (!obj) return;
+                    const w = obj.geometry.width ?? 100;
+                    handleObjectChange(selectedObjectId, { geometry: { ...obj.geometry, x: (canvasW - w) / 2 } });
+                    showToast('Centered horizontally', 'info');
+                  },
+                },
+                {
+                  label: 'Align Right', title: 'Align to right edge',
+                  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="20" y1="2" x2="20" y2="22"/><rect x="4" y="6" width="12" height="4" rx="1"/><rect x="8" y="14" width="8" height="4" rx="1"/></svg>,
+                  action: () => {
+                    const obj = objects.find(o => o.id === selectedObjectId);
+                    if (!obj) return;
+                    const w = obj.geometry.width ?? 100;
+                    handleObjectChange(selectedObjectId, { geometry: { ...obj.geometry, x: canvasW - w } });
+                    showToast('Aligned right', 'info');
+                  },
+                },
+                {
+                  label: 'Align Top', title: 'Align to top edge',
+                  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="2" y1="4" x2="22" y2="4"/><rect x="6" y="8" width="4" height="12" rx="1"/><rect x="14" y="8" width="4" height="8" rx="1"/></svg>,
+                  action: () => {
+                    const obj = objects.find(o => o.id === selectedObjectId);
+                    if (!obj) return;
+                    handleObjectChange(selectedObjectId, { geometry: { ...obj.geometry, y: 0 } });
+                    showToast('Aligned top', 'info');
+                  },
+                },
+                {
+                  label: 'Center V', title: 'Center vertically on canvas',
+                  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="2" y1="12" x2="22" y2="12"/><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="6" width="4" height="12" rx="1"/></svg>,
+                  action: () => {
+                    const obj = objects.find(o => o.id === selectedObjectId);
+                    if (!obj) return;
+                    const h = obj.geometry.height ?? 100;
+                    handleObjectChange(selectedObjectId, { geometry: { ...obj.geometry, y: (canvasH - h) / 2 } });
+                    showToast('Centered vertically', 'info');
+                  },
+                },
+                {
+                  label: 'Align Bottom', title: 'Align to bottom edge',
+                  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="2" y1="20" x2="22" y2="20"/><rect x="6" y="4" width="4" height="12" rx="1"/><rect x="14" y="8" width="4" height="8" rx="1"/></svg>,
+                  action: () => {
+                    const obj = objects.find(o => o.id === selectedObjectId);
+                    if (!obj) return;
+                    const h = obj.geometry.height ?? 100;
+                    handleObjectChange(selectedObjectId, { geometry: { ...obj.geometry, y: canvasH - h } });
+                    showToast('Aligned bottom', 'info');
+                  },
+                },
+              ]).map(({ label, title, icon, action }) => (
+                <button
+                  key={label}
+                  className="dc-tool-btn"
+                  onClick={action}
+                  title={title}
+                >
+                  {icon}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Spacer + search + floor name */}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -2076,23 +2178,78 @@ export default function EditorPage() {
           overflow: 'hidden',
         }}
       >
-        {/* Left sidebar: Layers (design mode only) */}
+        {/* Left sidebar: Layers/Objects (design mode only) */}
         {editorMode === 'design' && (
           <div
             style={{
               background: 'var(--color-surface)',
               borderRight: '1px solid var(--color-border)',
-              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
             }}
           >
-            <LayerPanel
-              layers={layers}
-              activeLayer={activeLayerId}
-              onLayerChange={handleLayerChange}
-              onActiveLayerChange={setActiveLayerId}
-              onAddLayer={handleAddLayer}
-              onDeleteLayer={handleDeleteLayer}
-            />
+            {/* Tab switcher */}
+            <div style={{
+              display: 'flex',
+              borderBottom: '1px solid var(--color-border)',
+              background: 'var(--color-bg)',
+            }}>
+              {(['layers', 'objects'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setLeftSidebarTab(tab)}
+                  style={{
+                    flex: 1,
+                    padding: '7px 0',
+                    border: 'none',
+                    background: leftSidebarTab === tab ? 'var(--color-surface)' : 'transparent',
+                    borderBottom: leftSidebarTab === tab ? '2px solid var(--color-primary)' : '2px solid transparent',
+                    cursor: 'pointer',
+                    fontSize: '0.72rem',
+                    fontWeight: leftSidebarTab === tab ? 700 : 500,
+                    color: leftSidebarTab === tab ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab content */}
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {leftSidebarTab === 'layers' && (
+                <LayerPanel
+                  layers={layers}
+                  activeLayer={activeLayerId}
+                  onLayerChange={handleLayerChange}
+                  onActiveLayerChange={setActiveLayerId}
+                  onAddLayer={handleAddLayer}
+                  onDeleteLayer={handleDeleteLayer}
+                />
+              )}
+              {leftSidebarTab === 'objects' && (
+                <ObjectListPanel
+                  objects={objects}
+                  selectedObjectId={selectedObjectId}
+                  onSelect={setSelectedObjectId}
+                  onScrollTo={(obj) => {
+                    if (containerRef.current && obj.geometry.x != null && obj.geometry.y != null) {
+                      const cx = obj.geometry.x * zoom;
+                      const cy = obj.geometry.y * zoom;
+                      containerRef.current.scrollTo({
+                        left: cx - containerRef.current.clientWidth / 2,
+                        top: cy - containerRef.current.clientHeight / 2,
+                        behavior: 'smooth',
+                      });
+                    }
+                    setHighlightObjectId(obj.id);
+                    setTimeout(() => setHighlightObjectId(null), 1500);
+                  }}
+                />
+              )}
+            </div>
           </div>
         )}
 
