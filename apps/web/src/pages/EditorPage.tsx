@@ -2914,18 +2914,21 @@ export default function EditorPage() {
                       const bgResp = await fetch(`/api/floorplans/${floorplan.id}/source-preview`);
                       if (bgResp.ok) {
                         const ct = bgResp.headers.get('content-type') || 'image/png';
-                        if (ct.includes('svg')) {
-                          const svgText = await bgResp.text();
-                          const b64 = btoa(unescape(encodeURIComponent(svgText)));
-                          lines.push(`  <image x="0" y="0" width="${w}" height="${h}" href="data:image/svg+xml;base64,${b64}" opacity="0.15" />`);
-                        } else {
-                          const blob = await bgResp.blob();
-                          const dataUri = await new Promise<string>((resolve) => {
-                            const reader = new FileReader();
-                            reader.onloadend = () => resolve(reader.result as string);
-                            reader.readAsDataURL(blob);
-                          });
-                          lines.push(`  <image x="0" y="0" width="${w}" height="${h}" href="${dataUri}" opacity="0.15" />`);
+                        const blob = await bgResp.blob();
+                        // Only embed if it's a real image (>1KB)
+                        if (blob.size > 1024) {
+                          if (ct.includes('svg')) {
+                            const svgText = await blob.text();
+                            const b64 = btoa(unescape(encodeURIComponent(svgText)));
+                            lines.push(`  <image x="0" y="0" width="${w}" height="${h}" href="data:image/svg+xml;base64,${b64}" xlink:href="data:image/svg+xml;base64,${b64}" opacity="0.2" />`);
+                          } else {
+                            const dataUri = await new Promise<string>((resolve) => {
+                              const reader = new FileReader();
+                              reader.onloadend = () => resolve(reader.result as string);
+                              reader.readAsDataURL(blob);
+                            });
+                            lines.push(`  <image x="0" y="0" width="${w}" height="${h}" href="${dataUri}" xlink:href="${dataUri}" opacity="0.2" />`);
+                          }
                         }
                       }
                     } catch { /* skip bg if fetch fails */ }
