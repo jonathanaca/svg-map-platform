@@ -435,6 +435,17 @@ export default function EditorPage() {
   const [editing, setEditing] = useState<{ objectId: string; value: string } | null>(null);
   const [snapGuides, setSnapGuides] = useState<{ type: 'h' | 'v'; pos: number }[]>([]);
 
+  // Space-bar pan state
+  const spaceHeldRef = useRef<boolean>(false);
+  const [panning, setPanning] = useState(false);
+  const panStartRef = useRef<{x: number; y: number; scrollLeft: number; scrollTop: number} | null>(null);
+
+  // Cursor coordinates for status bar
+  const [cursorCoords, setCursorCoords] = useState<{x: number; y: number} | null>(null);
+
+  // Rotation handle state
+  const [rotating, setRotating] = useState<{objectId: string; centerX: number; centerY: number; startAngle: number; startRotation: number} | null>(null);
+
   // Auto-save timer
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -761,6 +772,15 @@ export default function EditorPage() {
 
   const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (e.button !== 0) return;
+
+    // ── Space-bar pan ──
+    if (spaceHeldRef.current) {
+      setPanning(true);
+      panStartRef.current = { x: e.clientX, y: e.clientY, scrollLeft: containerRef.current?.scrollLeft ?? 0, scrollTop: containerRef.current?.scrollTop ?? 0 };
+      e.preventDefault();
+      return;
+    }
+
     const { x, y } = toSvgCoords(e.clientX, e.clientY);
 
     // ── Amenity placement mode ──
@@ -1112,7 +1132,27 @@ export default function EditorPage() {
   }, [activeTool, drawingOutline, outlinePoints, selectedObjectId, objects, layers, floorplanId, editorMode, activeLayerId, imageDims, placeWidth, placeHeight, placingDeskLayout, wallThickness]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    // ── Space-bar panning ──
+    if (panning && panStartRef.current && containerRef.current) {
+      containerRef.current.scrollLeft = panStartRef.current.scrollLeft - (e.clientX - panStartRef.current.x);
+      containerRef.current.scrollTop = panStartRef.current.scrollTop - (e.clientY - panStartRef.current.y);
+      return;
+    }
+
     const { x, y } = toSvgCoords(e.clientX, e.clientY);
+
+    // ── Rotation handle dragging ──
+    if (rotating) {
+      const angle = Math.atan2(y - rotating.centerY, x - rotating.centerX) * 180 / Math.PI;
+      let newRotation = rotating.startRotation + (angle - rotating.startAngle);
+      // Snap to 15-degree increments when holding Shift
+      if (e.shiftKey) newRotation = Math.round(newRotation / 15) * 15;
+      // Normalize to 0-360
+      newRotation = ((newRotation % 360) + 360) % 360;
+      handleObjectChange(rotating.objectId, { geometry: { ...objects.find(o => o.id === rotating.objectId)!.geometry, rotation: newRotation } });
+      setCursorCoords({ x: Math.round(x), y: Math.round(y) });
+      return;
+    }
 
     if (dragging) {
       const obj = objects.find((o) => o.id === dragging.objectId);
@@ -1192,9 +1232,14 @@ export default function EditorPage() {
       }
       setWallPreview({ x: wx, y: wy });
     }
-  }, [dragging, resizing, drawing, rectDraw, objects, activeTool, wallStart, editorState.snapEnabled, editorState.gridSize]);
+
+    // Update cursor coordinates for status bar
+    setCursorCoords({ x: Math.round(x), y: Math.round(y) });
+  }, [dragging, resizing, drawing, rectDraw, objects, activeTool, wallStart, editorState.snapEnabled, editorState.gridSize, panning, rotating, handleObjectChange]);
 
   const handleMouseUp = useCallback(() => {
+    if (panning) { setPanning(false); panStartRef.current = null; return; }
+    if (rotating) { setRotating(null); return; }
     if (dragging) {
       // Persist the move
       const obj = objects.find((o) => o.id === dragging.objectId);
@@ -1257,7 +1302,7 @@ export default function EditorPage() {
       }
       setRectDraw(null);
     }
-  }, [dragging, resizing, drawing, rectDraw, objects, floorplanId, activeLayerId]);
+  }, [dragging, resizing, drawing, rectDraw, objects, floorplanId, activeLayerId, panning, rotating]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     const { x, y } = toSvgCoords(e.clientX, e.clientY);
@@ -1431,6 +1476,25 @@ export default function EditorPage() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [dirty, saving, handleSave]);
+
+  // Space-bar pan tracking
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        spaceHeldRef.current = true;
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        spaceHeldRef.current = false;
+        setPanning(false);
+      }
+    };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
+  }, []);
 
   // Zoom: Ctrl+scroll = zoom, regular scroll = native scroll (pan via overflow:auto)
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -2300,7 +2364,7 @@ export default function EditorPage() {
             style={{
               width: `${zoom * 100}%`,
               display: 'block',
-              cursor: dragging ? 'grabbing' : resizing ? HANDLE_CURSORS[resizing.handle] : 'default',
+              cursor: panning ? 'grabbing' : spaceHeldRef.current ? 'grab' : dragging ? 'grabbing' : resizing ? HANDLE_CURSORS[resizing.handle] : 'default',
             }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
@@ -2525,6 +2589,42 @@ export default function EditorPage() {
                         />
                       );
                     })}
+                    {/* Rotation handle */}
+                    {isSelected && geom.type === 'rect' && (
+                      <g>
+                        <line
+                          data-ui-only="true"
+                          x1={rx + rw / 2} y1={ry}
+                          x2={rx + rw / 2} y2={ry - 25 / (strokeW / 2)}
+                          stroke="#f59e0b" strokeWidth={strokeW * 0.5}
+                          style={{ pointerEvents: 'none' }}
+                        />
+                        <circle
+                          data-ui-only="true"
+                          cx={rx + rw / 2} cy={ry - 25 / (strokeW / 2)}
+                          r={handleR * 0.8}
+                          fill="#f59e0b" stroke="#fff" strokeWidth={strokeW * 0.5}
+                          style={{ cursor: 'grab' }}
+                          onMouseDown={(ev) => {
+                            ev.stopPropagation();
+                            const centerX = rx + rw / 2;
+                            const centerY = ry + rh / 2;
+                            const handleY = ry - 25 / (strokeW / 2);
+                            const startAngle = Math.atan2(
+                              handleY - centerY,
+                              (rx + rw / 2) - centerX
+                            ) * 180 / Math.PI;
+                            setRotating({
+                              objectId: obj.id,
+                              centerX,
+                              centerY,
+                              startAngle,
+                              startRotation: geom.rotation ?? 0,
+                            });
+                          }}
+                        />
+                      </g>
+                    )}
                   </g>
                 );
               }
@@ -3836,6 +3936,12 @@ export default function EditorPage() {
         <span>Grid: {editorState.gridSize}px {editorState.gridEnabled ? '' : '(off)'}</span>
         <span style={{ width: 1, height: 12, background: 'var(--color-border)' }} />
         <span>Snap: {editorState.snapEnabled ? 'On' : 'Off'}</span>
+        {cursorCoords && (
+          <>
+            <span style={{ width: 1, height: 12, background: 'var(--color-border)' }} />
+            <span>X: {cursorCoords.x} Y: {cursorCoords.y}</span>
+          </>
+        )}
         {selectedObject && (
           <>
             <span style={{ width: 1, height: 12, background: 'var(--color-border)' }} />
