@@ -54,17 +54,17 @@ export default function RoomMesh({ obj, canvasW, canvasH, scale, state }: Props)
       corners.forEach(p => {
         const wx = (p.x - canvasW / 2) * scale;
         const wz = (p.y - canvasH / 2) * scale;
-        points.push(new THREE.Vector3(wx, height + 0.01, wz));
+        points.push(new THREE.Vector3(wx, 0.02, wz));
       });
     } else if (geom.type === 'polygon' && geom.points && geom.points.length >= 3) {
       geom.points.forEach(p => {
         const wx = (p.x - canvasW / 2) * scale;
         const wz = (p.y - canvasH / 2) * scale;
-        points.push(new THREE.Vector3(wx, height + 0.01, wz));
+        points.push(new THREE.Vector3(wx, 0.02, wz));
       });
       // Close the loop
       const first = geom.points[0];
-      points.push(new THREE.Vector3((first.x - canvasW / 2) * scale, height + 0.01, (first.y - canvasH / 2) * scale));
+      points.push(new THREE.Vector3((first.x - canvasW / 2) * scale, 0.02, (first.y - canvasH / 2) * scale));
     }
     if (points.length < 2) return null;
     return new THREE.BufferGeometry().setFromPoints(points);
@@ -78,7 +78,7 @@ export default function RoomMesh({ obj, canvasW, canvasH, scale, state }: Props)
 
   const isRoom = obj.object_type === 'room';
   const pinColor = statusColor ?? '#94a3b8';
-  const pinHeight = height + 0.3;
+  const pinHeight = 0.3;
   const stemHeight = 0.2;
 
   return (
@@ -89,10 +89,7 @@ export default function RoomMesh({ obj, canvasW, canvasH, scale, state }: Props)
           <meshLambertMaterial color={statusColor ?? '#94a3b8'} transparent opacity={0.12} />
         </mesh>
       )}
-      {/* Extruded walls */}
-      <mesh geometry={geometry} material={materials} rotation={[-Math.PI / 2, 0, 0]} />
-
-      {/* Wall outline around room */}
+      {/* Room border outline (flat, no extruded walls) */}
       {wallOutlineGeometry && (
         <line geometry={wallOutlineGeometry}>
           <lineBasicMaterial color="#1a1a1a" linewidth={2} />
