@@ -2521,11 +2521,11 @@ export default function EditorPage() {
               </defs>
             )}
 
-            {/* Canvas background with floorplan color */}
+            {/* Canvas background */}
             <rect
               x={0} y={0}
               width={canvasW} height={canvasH}
-              fill={(floorplan as any).background_color || '#ffffff'}
+              fill="white"
               stroke="var(--color-border)"
               strokeWidth="1"
               strokeDasharray="4 4"
@@ -2611,7 +2611,10 @@ export default function EditorPage() {
                   : undefined;
 
               const typeColor = TYPE_COLORS[obj.object_type] ?? '#4b5563';
-              const objFill = obj.fill_color || typeColor + '55';
+              // Floor outline uses the floorplan background color
+              const objFill = obj.svg_id === 'floor-outline'
+                ? ((floorplan as any).background_color || obj.fill_color || 'rgba(107,114,128,0.15)')
+                : (obj.fill_color || typeColor + '55');
               const objStroke = obj.stroke_color || typeColor;
               const fillColor = availColor ?? (isSelected ? objFill : objFill);
               const strokeColor = isSelected ? '#f59e0b' : objStroke;
