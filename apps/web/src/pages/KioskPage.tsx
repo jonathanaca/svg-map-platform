@@ -131,50 +131,65 @@ export default function KioskPage() {
             )}
           </div>
         </div>
-        <div className="kiosk-header-right">
-          <div style={{ display: 'flex', background: '#21262d', borderRadius: 6, overflow: 'hidden', border: '1px solid #30363d' }}>
+        <div className="kiosk-header-right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* View mode toggle */}
+          <div style={{ display: 'flex', background: '#21262d', borderRadius: 8, overflow: 'hidden', border: '1px solid #30363d' }}>
             <button
               onClick={() => setViewMode('2d')}
               style={{
-                padding: '5px 12px',
-                fontSize: 11,
-                fontWeight: 600,
+                padding: '8px 18px',
+                fontSize: 14,
+                fontWeight: 700,
                 border: 'none',
                 cursor: 'pointer',
                 background: viewMode === '2d' ? '#388bfd' : 'transparent',
                 color: viewMode === '2d' ? '#fff' : '#8b949e',
+                letterSpacing: '0.5px',
               }}
-            >2D</button>
+            >2D Map</button>
             <button
               onClick={() => setViewMode('3d')}
               style={{
-                padding: '5px 12px',
-                fontSize: 11,
-                fontWeight: 600,
+                padding: '8px 18px',
+                fontSize: 14,
+                fontWeight: 700,
                 border: 'none',
                 cursor: 'pointer',
                 background: viewMode === '3d' ? '#388bfd' : 'transparent',
                 color: viewMode === '3d' ? '#fff' : '#8b949e',
+                letterSpacing: '0.5px',
               }}
-            >3D</button>
+            >3D View</button>
           </div>
+          {/* Heatmap toggle */}
           <button
             onClick={() => setHeatmapEnabled(!heatmapEnabled)}
             style={{
-              padding: '5px 12px',
-              fontSize: 11,
-              fontWeight: 600,
+              padding: '8px 18px',
+              fontSize: 14,
+              fontWeight: 700,
               border: '1px solid #30363d',
-              borderRadius: 6,
+              borderRadius: 8,
               cursor: 'pointer',
               background: heatmapEnabled ? '#388bfd' : '#21262d',
               color: heatmapEnabled ? '#fff' : '#8b949e',
+              letterSpacing: '0.5px',
             }}
           >Heatmap</button>
+          {/* Share */}
           <button
-            className="kiosk-header-btn"
             onClick={() => setShowShare(!showShare)}
-            title="Share"
+            style={{
+              padding: '8px 18px',
+              fontSize: 14,
+              fontWeight: 700,
+              border: '1px solid #30363d',
+              borderRadius: 8,
+              cursor: 'pointer',
+              background: showShare ? '#388bfd' : '#21262d',
+              color: showShare ? '#fff' : '#8b949e',
+              letterSpacing: '0.5px',
+            }}
           >Share</button>
           <LiveClock />
         </div>
@@ -266,7 +281,7 @@ export default function KioskPage() {
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             onClick={async () => {
               if (!floorplan) return;
@@ -300,12 +315,15 @@ export default function KioskPage() {
               a.click();
               URL.revokeObjectURL(url);
             }}
-            className="kiosk-floor-tab"
-            style={{ borderBottom: 'none' }}
+            style={{
+              padding: '8px 16px', fontSize: 13, fontWeight: 600,
+              border: '1px solid #30363d', borderRadius: 8,
+              background: '#21262d', color: '#8b949e', cursor: 'pointer',
+            }}
           >
             Export Isometric SVG
           </button>
-          <span className="kiosk-brand">Floor Plan Studio</span>
+          <span className="kiosk-brand" style={{ fontSize: 13, fontWeight: 600 }}>Floor Plan Studio</span>
         </div>
       </footer>
     </div>

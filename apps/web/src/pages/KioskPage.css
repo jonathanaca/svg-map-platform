@@ -132,9 +132,9 @@
 }
 
 .kiosk-legend-title {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
-  color: #7d8590;
+  color: #8b949e;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 10px;
@@ -155,7 +155,7 @@
 }
 
 .kiosk-legend-label {
-  font-size: 12px;
+  font-size: 14px;
   color: #e6edf3;
   text-transform: capitalize;
 }
@@ -190,12 +190,12 @@
 }
 
 .kiosk-floor-tab {
-  padding: 8px 16px;
+  padding: 10px 20px;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #7d8590;
-  font-size: 12px;
+  color: #8b949e;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
@@ -213,9 +213,9 @@
 }
 
 .kiosk-brand {
-  font-size: 11px;
-  font-weight: 600;
-  color: #484f58;
+  font-size: 14px;
+  font-weight: 700;
+  color: #58a6ff;
   letter-spacing: 0.5px;
 }
 
