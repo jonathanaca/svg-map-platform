@@ -321,6 +321,13 @@ export default function LabellingPanel({
               </div>
             </>
           )}
+
+          {/* Export IDs */}
+          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 10, marginTop: 4 }}>
+            <button className="btn btn-primary btn-sm" style={{ width: '100%', fontSize: '0.85rem', padding: '8px 12px' }} onClick={handleExportAssignments}>
+              Export IDs as CSV
+            </button>
+          </div>
         </div>
       )}
 
