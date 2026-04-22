@@ -1139,10 +1139,12 @@ export default function EditorPage() {
           setSelectedObjectIds(prev => {
             const next = new Set(prev);
             if (next.has(hitId)) { next.delete(hitId); } else { next.add(hitId); }
-            // Update single selection to last clicked
             setSelectedObjectId_(next.size > 0 ? hitId : null);
             return next;
           });
+        } else if (selectedObjectIds.has(hitId) && selectedObjectIds.size > 1) {
+          // Clicked an already-selected object in multi-select — keep selection, just set primary
+          setSelectedObjectId_(hitId);
         } else {
           // Normal click: single select
           setSelectedObjectId(hitId);
@@ -1155,11 +1157,9 @@ export default function EditorPage() {
         e.preventDefault();
         return;
       }
-      // Click empty space — start marquee selection or deselect
-      if (!e.shiftKey) {
-        setSelectedObjectId(null);
-      }
-      setMarquee({ startX: x, startY: y, currentX: x, currentY: y });
+      // Click empty space — deselect
+      setSelectedObjectId(null);
+      setSelectedObjectIds(new Set());
       return;
     }
 
@@ -1300,11 +1300,6 @@ export default function EditorPage() {
       setRectDraw(prev => prev ? { ...prev, currentX: x, currentY: y } : null);
     }
 
-    // Marquee selection update
-    if (marquee) {
-      setMarquee(prev => prev ? { ...prev, currentX: x, currentY: y } : null);
-    }
-
     // Wall preview
     if (activeTool === 'wall' && wallStart) {
       let wx = x, wy = y;
@@ -1347,37 +1342,6 @@ export default function EditorPage() {
   const handleMouseUp = useCallback(() => {
     if (panning) { setPanning(false); panStartRef.current = null; return; }
     if (rotating) { setRotating(null); return; }
-    if (marquee) {
-      // Complete marquee selection — find all objects inside the rectangle
-      const mx = Math.min(marquee.startX, marquee.currentX);
-      const my = Math.min(marquee.startY, marquee.currentY);
-      const mw = Math.abs(marquee.currentX - marquee.startX);
-      const mh = Math.abs(marquee.currentY - marquee.startY);
-      if (mw > 5 && mh > 5) { // Only select if marquee is large enough
-        const selected = new Set<string>();
-        for (const obj of objects) {
-          if (!obj.visible) continue;
-          const g = obj.geometry;
-          const ox = g.x ?? 0, oy = g.y ?? 0, ow = g.width ?? 0, oh = g.height ?? 0;
-          // Check if object intersects marquee
-          if (g.type === 'rect' || g.type === 'polygon') {
-            if (ox + ow > mx && ox < mx + mw && oy + oh > my && oy < my + mh) {
-              selected.add(obj.id);
-            }
-          } else if (g.type === 'circle') {
-            if ((g.x ?? 0) > mx && (g.x ?? 0) < mx + mw && (g.y ?? 0) > my && (g.y ?? 0) < my + mh) {
-              selected.add(obj.id);
-            }
-          }
-        }
-        if (selected.size > 0) {
-          setSelectedObjectIds(selected);
-          setSelectedObjectId_(selected.values().next().value);
-          showToast(`Selected ${selected.size} objects`, 'info');
-        }
-      }
-      setMarquee(null);
-    }
     if (dragging) {
       // Persist the move for all selected objects
       const idsToSave = selectedObjectIds.size > 1 ? selectedObjectIds : new Set([dragging.objectId]);
@@ -2928,22 +2892,6 @@ export default function EditorPage() {
                 style={{ pointerEvents: 'none' }}
               />
             )}
-            {/* Marquee selection rectangle */}
-            {marquee && (
-              <rect
-                data-ui-only="true"
-                x={Math.min(marquee.startX, marquee.currentX)}
-                y={Math.min(marquee.startY, marquee.currentY)}
-                width={Math.abs(marquee.currentX - marquee.startX)}
-                height={Math.abs(marquee.currentY - marquee.startY)}
-                fill="rgba(59, 130, 246, 0.1)"
-                stroke="#3b82f6"
-                strokeWidth={1}
-                strokeDasharray="4 4"
-                style={{ pointerEvents: 'none' }}
-              />
-            )}
-
             {/* Multi-selection highlight */}
             {selectedObjectIds.size > 1 && visibleObjects.filter(o => selectedObjectIds.has(o.id)).map(obj => {
               const g = obj.geometry;
