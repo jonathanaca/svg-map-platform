@@ -3013,7 +3013,11 @@ export default function EditorPage() {
                     <div
                       key={item.id}
                       onClick={() => {
-                        handleObjectChange(obj.id, { svg_id: item.id, label: item.label || item.id });
+                        // Direct update — bypass undo so label assignments persist
+                        const updates = { svg_id: item.id, label: item.label || item.id };
+                        setObjects(prev => prev.map(o => o.id === obj.id ? { ...o, ...updates } : o));
+                        updateObject(obj.id, updates).catch(console.error);
+                        setDirty(true);
                         setImportedLabelIds(prev => prev.map(i => i.id === item.id ? { ...i, assigned: true } : i));
                         showToast(`Assigned "${item.id}" to ${obj.label || 'object'}`, 'success');
                       }}
