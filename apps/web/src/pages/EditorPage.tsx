@@ -260,7 +260,15 @@ export default function EditorPage() {
 
   // Object state (loaded from API)
   const [objects, setObjects] = useState<MapObject[]>([]);
-  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [selectedObjectId, setSelectedObjectId_] = useState<string | null>(null);
+  const [selectedObjectIds, setSelectedObjectIds] = useState<Set<string>>(new Set());
+  const [marquee, setMarquee] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+
+  // Wrapper: keep single selection in sync with multi-selection
+  const setSelectedObjectId = useCallback((id: string | null) => {
+    setSelectedObjectId_(id);
+    setSelectedObjectIds(id ? new Set([id]) : new Set());
+  }, []);
 
   // Undo/Redo history
   const undoStack = useRef<MapObject[][]>([]);
@@ -1125,16 +1133,33 @@ export default function EditorPage() {
         bestHits.sort((a, b) => a.area - b.area);
         const hitId = bestHits[0].id;
         const hitObj = objects.find((o) => o.id === hitId)!;
-        setSelectedObjectId(hitId);
-        // Only allow dragging if the object's layer is not locked and object is not locked
+
+        if (e.shiftKey) {
+          // Shift+click: toggle in multi-selection
+          setSelectedObjectIds(prev => {
+            const next = new Set(prev);
+            if (next.has(hitId)) { next.delete(hitId); } else { next.add(hitId); }
+            // Update single selection to last clicked
+            setSelectedObjectId_(next.size > 0 ? hitId : null);
+            return next;
+          });
+        } else {
+          // Normal click: single select
+          setSelectedObjectId(hitId);
+        }
+
+        // Allow dragging if not locked — moves all selected objects
         if (!hitObj.locked) {
           setDragging({ objectId: hitId, offsetX: x - (hitObj.geometry.x ?? 0), offsetY: y - (hitObj.geometry.y ?? 0) });
         }
         e.preventDefault();
         return;
       }
-      // Click empty space — deselect
-      setSelectedObjectId(null);
+      // Click empty space — start marquee selection or deselect
+      if (!e.shiftKey) {
+        setSelectedObjectId(null);
+      }
+      setMarquee({ startX: x, startY: y, currentX: x, currentY: y });
       return;
     }
 
@@ -1208,8 +1233,14 @@ export default function EditorPage() {
       const w = obj.geometry.width ?? 0;
       const h = obj.geometry.height ?? 0;
 
+      // Compute delta from primary dragged object
+      const dx = rawX - (obj.geometry.x ?? 0);
+      const dy = rawY - (obj.geometry.y ?? 0);
+
+      const idsToMove = selectedObjectIds.size > 1 ? selectedObjectIds : new Set([dragging.objectId]);
+
       const otherRects = objects
-        .filter((o) => o.id !== dragging.objectId && o.visible)
+        .filter((o) => !idsToMove.has(o.id) && o.visible)
         .map((o) => ({
           x: o.geometry.x ?? 0,
           y: o.geometry.y ?? 0,
@@ -1223,12 +1254,19 @@ export default function EditorPage() {
       );
       setSnapGuides(guides);
 
+      const snapDx = snappedX - (obj.geometry.x ?? 0);
+      const snapDy = snappedY - (obj.geometry.y ?? 0);
+
       setObjects((prev) =>
-        prev.map((o) =>
-          o.id === dragging.objectId
-            ? { ...o, geometry: { ...o.geometry, x: snappedX, y: snappedY } }
-            : o,
-        ),
+        prev.map((o) => {
+          if (o.id === dragging.objectId) {
+            return { ...o, geometry: { ...o.geometry, x: snappedX, y: snappedY } };
+          }
+          if (idsToMove.has(o.id)) {
+            return { ...o, geometry: { ...o.geometry, x: (o.geometry.x ?? 0) + snapDx, y: (o.geometry.y ?? 0) + snapDy } };
+          }
+          return o;
+        }),
       );
     } else if (resizing) {
       const { handle, origX, origY, origW, origH } = resizing;
@@ -1260,6 +1298,11 @@ export default function EditorPage() {
       );
     } else if (rectDraw) {
       setRectDraw(prev => prev ? { ...prev, currentX: x, currentY: y } : null);
+    }
+
+    // Marquee selection update
+    if (marquee) {
+      setMarquee(prev => prev ? { ...prev, currentX: x, currentY: y } : null);
     }
 
     // Wall preview
@@ -1299,18 +1342,52 @@ export default function EditorPage() {
 
     // Update cursor coordinates for status bar
     setCursorCoords({ x: Math.round(x), y: Math.round(y) });
-  }, [dragging, resizing, drawing, rectDraw, objects, activeTool, wallStart, editorState.snapEnabled, editorState.gridSize, panning, rotating, handleObjectChange]);
+  }, [dragging, resizing, drawing, rectDraw, objects, activeTool, wallStart, editorState.snapEnabled, editorState.gridSize, panning, rotating, handleObjectChange, marquee, selectedObjectIds]);
 
   const handleMouseUp = useCallback(() => {
     if (panning) { setPanning(false); panStartRef.current = null; return; }
     if (rotating) { setRotating(null); return; }
-    if (dragging) {
-      // Persist the move
-      const obj = objects.find((o) => o.id === dragging.objectId);
-      if (obj) {
-        updateObject(dragging.objectId, { geometry: obj.geometry }).catch(() => {});
-        setDirty(true);
+    if (marquee) {
+      // Complete marquee selection — find all objects inside the rectangle
+      const mx = Math.min(marquee.startX, marquee.currentX);
+      const my = Math.min(marquee.startY, marquee.currentY);
+      const mw = Math.abs(marquee.currentX - marquee.startX);
+      const mh = Math.abs(marquee.currentY - marquee.startY);
+      if (mw > 5 && mh > 5) { // Only select if marquee is large enough
+        const selected = new Set<string>();
+        for (const obj of objects) {
+          if (!obj.visible) continue;
+          const g = obj.geometry;
+          const ox = g.x ?? 0, oy = g.y ?? 0, ow = g.width ?? 0, oh = g.height ?? 0;
+          // Check if object intersects marquee
+          if (g.type === 'rect' || g.type === 'polygon') {
+            if (ox + ow > mx && ox < mx + mw && oy + oh > my && oy < my + mh) {
+              selected.add(obj.id);
+            }
+          } else if (g.type === 'circle') {
+            if ((g.x ?? 0) > mx && (g.x ?? 0) < mx + mw && (g.y ?? 0) > my && (g.y ?? 0) < my + mh) {
+              selected.add(obj.id);
+            }
+          }
+        }
+        if (selected.size > 0) {
+          setSelectedObjectIds(selected);
+          setSelectedObjectId_(selected.values().next().value);
+          showToast(`Selected ${selected.size} objects`, 'info');
+        }
       }
+      setMarquee(null);
+    }
+    if (dragging) {
+      // Persist the move for all selected objects
+      const idsToSave = selectedObjectIds.size > 1 ? selectedObjectIds : new Set([dragging.objectId]);
+      for (const id of idsToSave) {
+        const obj = objects.find((o) => o.id === id);
+        if (obj) {
+          updateObject(id, { geometry: obj.geometry }).catch(() => {});
+        }
+      }
+      setDirty(true);
       setDragging(null);
       setSnapGuides([]);
     }
@@ -2851,6 +2928,42 @@ export default function EditorPage() {
                 style={{ pointerEvents: 'none' }}
               />
             )}
+            {/* Marquee selection rectangle */}
+            {marquee && (
+              <rect
+                data-ui-only="true"
+                x={Math.min(marquee.startX, marquee.currentX)}
+                y={Math.min(marquee.startY, marquee.currentY)}
+                width={Math.abs(marquee.currentX - marquee.startX)}
+                height={Math.abs(marquee.currentY - marquee.startY)}
+                fill="rgba(59, 130, 246, 0.1)"
+                stroke="#3b82f6"
+                strokeWidth={1}
+                strokeDasharray="4 4"
+                style={{ pointerEvents: 'none' }}
+              />
+            )}
+
+            {/* Multi-selection highlight */}
+            {selectedObjectIds.size > 1 && visibleObjects.filter(o => selectedObjectIds.has(o.id)).map(obj => {
+              const g = obj.geometry;
+              if (g.type === 'rect') {
+                return (
+                  <rect
+                    key={`multi-${obj.id}`}
+                    data-ui-only="true"
+                    x={(g.x ?? 0) - 2} y={(g.y ?? 0) - 2}
+                    width={(g.width ?? 0) + 4} height={(g.height ?? 0) + 4}
+                    fill="none" stroke="#3b82f6" strokeWidth={1.5}
+                    strokeDasharray="4 2"
+                    rx={3}
+                    style={{ pointerEvents: 'none' }}
+                  />
+                );
+              }
+              return null;
+            })}
+
             {/* Wall drawing preview */}
             {wallStart && wallPreview && activeTool === 'wall' && (
               <g data-ui-only="true" style={{ pointerEvents: 'none' }}>
