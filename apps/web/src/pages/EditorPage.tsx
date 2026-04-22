@@ -262,6 +262,10 @@ export default function EditorPage() {
   const [objects, setObjects] = useState<MapObject[]>([]);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
 
+  // Multi-select for group operations — separate from main selection
+  const multiSelectIdsRef = useRef<string[]>([]);
+  const [multiSelectActive, setMultiSelectActive] = useState(false);
+
   // Undo/Redo history
   const undoStack = useRef<MapObject[][]>([]);
   const redoStack = useRef<MapObject[][]>([]);
@@ -1135,6 +1139,8 @@ export default function EditorPage() {
       }
       // Click empty space — deselect
       setSelectedObjectId(null);
+      multiSelectIdsRef.current = [];
+      setMultiSelectActive(false);
       return;
     }
 
@@ -1223,12 +1229,22 @@ export default function EditorPage() {
       );
       setSnapGuides(guides);
 
+      const snapDx = snappedX - (obj.geometry.x ?? 0);
+      const snapDy = snappedY - (obj.geometry.y ?? 0);
+      const idsToMove = multiSelectActive && multiSelectIdsRef.current.length > 1
+        ? new Set(multiSelectIdsRef.current)
+        : new Set([dragging.objectId]);
+
       setObjects((prev) =>
-        prev.map((o) =>
-          o.id === dragging.objectId
-            ? { ...o, geometry: { ...o.geometry, x: snappedX, y: snappedY } }
-            : o,
-        ),
+        prev.map((o) => {
+          if (o.id === dragging.objectId) {
+            return { ...o, geometry: { ...o.geometry, x: snappedX, y: snappedY } };
+          }
+          if (idsToMove.has(o.id) && o.id !== dragging.objectId) {
+            return { ...o, geometry: { ...o.geometry, x: (o.geometry.x ?? 0) + snapDx, y: (o.geometry.y ?? 0) + snapDy } };
+          }
+          return o;
+        }),
       );
     } else if (resizing) {
       const { handle, origX, origY, origW, origH } = resizing;
@@ -1305,12 +1321,17 @@ export default function EditorPage() {
     if (panning) { setPanning(false); panStartRef.current = null; return; }
     if (rotating) { setRotating(null); return; }
     if (dragging) {
-      // Persist the move
-      const obj = objects.find((o) => o.id === dragging.objectId);
-      if (obj) {
-        updateObject(dragging.objectId, { geometry: obj.geometry }).catch(() => {});
-        setDirty(true);
+      // Persist the move for all selected objects
+      if (multiSelectActive && multiSelectIdsRef.current.length > 1) {
+        for (const id of multiSelectIdsRef.current) {
+          const obj = objects.find((o) => o.id === id);
+          if (obj) updateObject(id, { geometry: obj.geometry }).catch(() => {});
+        }
+      } else {
+        const obj = objects.find((o) => o.id === dragging.objectId);
+        if (obj) updateObject(dragging.objectId, { geometry: obj.geometry }).catch(() => {});
       }
+      setDirty(true);
       setDragging(null);
       setSnapGuides([]);
     }
@@ -2851,6 +2872,23 @@ export default function EditorPage() {
                 style={{ pointerEvents: 'none' }}
               />
             )}
+            {/* Multi-select highlight */}
+            {multiSelectActive && multiSelectIdsRef.current.map(id => {
+              const obj = objects.find(o => o.id === id);
+              if (!obj || obj.geometry.type !== 'rect') return null;
+              const g = obj.geometry;
+              return (
+                <rect
+                  key={`ms-${id}`}
+                  data-ui-only="true"
+                  x={(g.x ?? 0) - 2} y={(g.y ?? 0) - 2}
+                  width={(g.width ?? 0) + 4} height={(g.height ?? 0) + 4}
+                  fill="none" stroke="#3b82f6" strokeWidth={1.5}
+                  strokeDasharray="4 2" rx={3}
+                  style={{ pointerEvents: 'none' }}
+                />
+              );
+            })}
             {/* Wall drawing preview */}
             {wallStart && wallPreview && activeTool === 'wall' && (
               <g data-ui-only="true" style={{ pointerEvents: 'none' }}>
@@ -4214,6 +4252,32 @@ export default function EditorPage() {
             }}>
               <span>Duplicate</span><span className="context-menu-shortcut">{'\u2318'}D</span>
             </button>
+            {/* Select Group */}
+            {(() => {
+              const obj = objects.find(o => o.id === contextMenu.objectId);
+              if (!obj?.group_id) return null;
+              const groupMembers = objects.filter(o => o.group_id === obj.group_id);
+              return (
+                <>
+                  <button className="context-menu-item" onClick={() => {
+                    multiSelectIdsRef.current = groupMembers.map(o => o.id);
+                    setMultiSelectActive(true);
+                    setSelectedObjectId(contextMenu.objectId);
+                    showToast(`Group selected (${groupMembers.length}) — drag any to move all`, 'info');
+                    setContextMenu(null);
+                  }}>
+                    <span>Select Group ({groupMembers.length})</span>
+                  </button>
+                  <button className="context-menu-item context-menu-item--danger" onClick={() => {
+                    for (const m of groupMembers) handleObjectDelete(m.id);
+                    showToast(`Deleted group (${groupMembers.length})`, 'info');
+                    setContextMenu(null);
+                  }}>
+                    <span>Delete Group ({groupMembers.length})</span>
+                  </button>
+                </>
+              );
+            })()}
             <div className="context-menu-sep" />
             <button className="context-menu-item" onClick={() => {
               const obj = objects.find(o => o.id === contextMenu.objectId);
