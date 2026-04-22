@@ -366,7 +366,7 @@ export default function EditorPage() {
 
   // Bottom panel tab state (for label mode)
   const [bottomTab, setBottomTab] = useState<'labelling' | 'validation'>('labelling');
-  const [leftSidebarTab, setLeftSidebarTab] = useState<'layers' | 'objects'>('layers');
+  const [leftSidebarTab, setLeftSidebarTab] = useState<'layers' | 'objects' | 'label'>('layers');
 
   // Editor search
   const [editorSearchQuery, setEditorSearchQuery] = useState('');
@@ -1714,7 +1714,6 @@ export default function EditorPage() {
         <div className="dc-toolbar-group" style={{ background: 'var(--color-bg)', borderRadius: 6, padding: 2 }}>
           {([
             { mode: 'design' as EditorMode, label: 'Design' },
-            { mode: 'label' as EditorMode, label: 'Label' },
             { mode: 'preview' as EditorMode, label: 'Preview' },
           ]).map(({ mode, label }) => (
             <button
@@ -2340,7 +2339,7 @@ export default function EditorPage() {
               borderBottom: '1px solid var(--color-border)',
               background: 'var(--color-bg)',
             }}>
-              {(['layers', 'objects'] as const).map(tab => (
+              {(['layers', 'objects', 'label'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setLeftSidebarTab(tab)}
@@ -2392,6 +2391,16 @@ export default function EditorPage() {
                     setHighlightObjectId(obj.id);
                     setTimeout(() => setHighlightObjectId(null), 1500);
                   }}
+                />
+              )}
+              {leftSidebarTab === 'label' && (
+                <LabellingPanel
+                  selectedObjects={selectedObjects}
+                  allObjects={objects}
+                  onBulkUpdate={handleBulkUpdate}
+                  onAutoNumber={handleAutoNumber}
+                  onExportCsv={handleExportCsv}
+                  onImportCsv={handleImportCsv}
                 />
               )}
             </div>
