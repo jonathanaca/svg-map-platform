@@ -1146,16 +1146,8 @@ export default function EditorPage() {
           // Clicked an already-selected object in multi-select — keep selection, just set primary
           setSelectedObjectId_(hitId);
         } else {
-          // Check if this object is part of a group — select entire group
-          const groupId = hitObj.group_id;
-          if (groupId) {
-            const groupMembers = objects.filter(o => o.group_id === groupId).map(o => o.id);
-            setSelectedObjectIds(new Set(groupMembers));
-            setSelectedObjectId_(hitId);
-          } else {
-            // Normal click: single select
-            setSelectedObjectId(hitId);
-          }
+          // Normal click: single select (even if in a group)
+          setSelectedObjectId(hitId);
         }
 
         // Allow dragging if not locked — moves all selected objects
@@ -4283,6 +4275,23 @@ export default function EditorPage() {
             }}>
               <span>Duplicate</span><span className="context-menu-shortcut">{'\u2318'}D</span>
             </button>
+            {/* Select Group — only show if object has a group_id */}
+            {(() => {
+              const obj = objects.find(o => o.id === contextMenu.objectId);
+              if (!obj?.group_id) return null;
+              const groupCount = objects.filter(o => o.group_id === obj.group_id).length;
+              return (
+                <button className="context-menu-item" onClick={() => {
+                  const members = objects.filter(o => o.group_id === obj.group_id).map(o => o.id);
+                  setSelectedObjectIds(new Set(members));
+                  setSelectedObjectId_(contextMenu.objectId);
+                  showToast(`Selected group (${members.length} objects)`, 'info');
+                  setContextMenu(null);
+                }}>
+                  <span>Select Group ({groupCount})</span>
+                </button>
+              );
+            })()}
             <div className="context-menu-sep" />
             <button className="context-menu-item" onClick={() => {
               const obj = objects.find(o => o.id === contextMenu.objectId);
