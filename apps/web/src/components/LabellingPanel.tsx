@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import type { MapObject, MapObjectType, PlaceOSEntityType } from '@svg-map/types';
 
 interface Props {
@@ -10,11 +10,13 @@ interface Props {
   onImportCsv: (file: File) => void;
 }
 
-const OBJECT_TYPES: MapObjectType[] = [
-  'room', 'desk', 'zone', 'area', 'amenity', 'decorative', 'parking', 'locker',
-];
-
-const ENTITY_TYPES: (PlaceOSEntityType | '')[] = ['', 'system', 'module', 'zone'];
+interface ImportedId {
+  id: string;
+  label?: string;
+  type?: string;
+  assigned?: boolean;
+  assignedTo?: string; // object id it's assigned to
+}
 
 export default function LabellingPanel({
   selectedObjects,
@@ -24,250 +26,389 @@ export default function LabellingPanel({
   onExportCsv,
   onImportCsv,
 }: Props) {
-  const [bulkType, setBulkType] = useState<MapObjectType | ''>('');
-  const [bulkEntityType, setBulkEntityType] = useState<PlaceOSEntityType | ''>('');
-  const [bulkEntityId, setBulkEntityId] = useState('');
-  const [bulkTags, setBulkTags] = useState('');
+  const [importedIds, setImportedIds] = useState<ImportedId[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'assign' | 'bulk' | 'export'>('assign');
   const [autoPrefix, setAutoPrefix] = useState('desk-');
   const [autoStart, setAutoStart] = useState(1);
   const [filterType, setFilterType] = useState<MapObjectType | ''>('');
+  const [bulkType, setBulkType] = useState<MapObjectType | ''>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importCsvRef = useRef<HTMLInputElement>(null);
 
-  const selectedIds = selectedObjects.map((o) => o.id);
+  const selectedObj = selectedObjects.length === 1 ? selectedObjects[0] : null;
 
-  const handleBulkType = useCallback(() => {
-    if (!bulkType || selectedIds.length === 0) return;
-    onBulkUpdate(selectedIds, { object_type: bulkType });
-  }, [bulkType, selectedIds, onBulkUpdate]);
+  // Filter imported IDs by search
+  const filteredIds = useMemo(() => {
+    if (!searchQuery.trim()) return importedIds;
+    const q = searchQuery.toLowerCase();
+    return importedIds.filter(item =>
+      item.id.toLowerCase().includes(q) ||
+      (item.label && item.label.toLowerCase().includes(q)) ||
+      (item.type && item.type.toLowerCase().includes(q))
+    );
+  }, [importedIds, searchQuery]);
 
-  const handleBulkEntity = useCallback(() => {
-    if (selectedIds.length === 0) return;
-    onBulkUpdate(selectedIds, {
-      entity_type: bulkEntityType === '' ? null : bulkEntityType,
-      entity_id: bulkEntityId || null,
+  const unassignedIds = filteredIds.filter(item => !item.assigned);
+  const assignedIds = filteredIds.filter(item => item.assigned);
+
+  // Import CSV of IDs
+  const handleImportIds = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      if (!text) return;
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length === 0) return;
+
+      // Check if first line is a header
+      const firstLine = lines[0].toLowerCase();
+      const hasHeader = firstLine.includes('id') || firstLine.includes('name') || firstLine.includes('label');
+      const dataLines = hasHeader ? lines.slice(1) : lines;
+
+      const ids: ImportedId[] = dataLines.map(line => {
+        const parts = line.split(',').map(p => p.trim().replace(/^["']|["']$/g, ''));
+        // Check if any existing object already has this ID
+        const existingObj = allObjects.find(o => o.svg_id === parts[0] || o.label === parts[0]);
+        return {
+          id: parts[0],
+          label: parts[1] || undefined,
+          type: parts[2] || undefined,
+          assigned: !!existingObj,
+          assignedTo: existingObj?.id,
+        };
+      }).filter(item => item.id);
+
+      setImportedIds(ids);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }, [allObjects]);
+
+  // Assign an imported ID to the selected object
+  const handleAssign = useCallback((item: ImportedId) => {
+    if (!selectedObj) return;
+    onBulkUpdate([selectedObj.id], {
+      svg_id: item.id,
+      label: item.label || item.id,
     });
-  }, [bulkEntityType, bulkEntityId, selectedIds, onBulkUpdate]);
+    // Mark as assigned
+    setImportedIds(prev => prev.map(i =>
+      i.id === item.id ? { ...i, assigned: true, assignedTo: selectedObj.id } : i
+    ));
+  }, [selectedObj, onBulkUpdate]);
 
-  const handleBulkTags = useCallback(() => {
-    if (selectedIds.length === 0) return;
-    const tags = bulkTags.trim()
-      ? bulkTags.split(',').map((t) => t.trim()).filter(Boolean)
-      : [];
-    onBulkUpdate(selectedIds, { tags });
-  }, [bulkTags, selectedIds, onBulkUpdate]);
+  // Unassign an ID
+  const handleUnassign = useCallback((item: ImportedId) => {
+    setImportedIds(prev => prev.map(i =>
+      i.id === item.id ? { ...i, assigned: false, assignedTo: undefined } : i
+    ));
+  }, []);
+
+  // Export all assignments as CSV
+  const handleExportAssignments = useCallback(() => {
+    const lines = ['svg_id,label,object_type,x,y,width,height'];
+    for (const obj of allObjects) {
+      if (obj.object_type === 'room' || obj.object_type === 'desk' || obj.object_type === 'zone') {
+        const g = obj.geometry;
+        lines.push([
+          obj.svg_id || '',
+          obj.label || '',
+          obj.object_type,
+          String(g.x ?? ''),
+          String(g.y ?? ''),
+          String(g.width ?? ''),
+          String(g.height ?? ''),
+        ].join(','));
+      }
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'floorplan-ids.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [allObjects]);
+
+  // Legacy import handler
+  const handleLegacyImport = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) { onImportCsv(file); e.target.value = ''; }
+    },
+    [onImportCsv],
+  );
 
   const handleAutoNumber = useCallback(() => {
     onAutoNumber(autoPrefix, autoStart);
   }, [autoPrefix, autoStart, onAutoNumber]);
 
-  const handleImport = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        onImportCsv(file);
-        e.target.value = '';
-      }
-    },
-    [onImportCsv],
-  );
-
   const handleSelectByType = useCallback(() => {
     if (!filterType) return;
-    const ids = allObjects
-      .filter((o) => o.object_type === filterType)
-      .map((o) => o.id);
-    if (ids.length > 0) {
-      onBulkUpdate(ids, {}); // signal selection, no actual update
-    }
+    const ids = allObjects.filter(o => o.object_type === filterType).map(o => o.id);
+    if (ids.length > 0) onBulkUpdate(ids, {});
   }, [filterType, allObjects, onBulkUpdate]);
 
-  // Summary of selected object types
-  const typeCounts: Record<string, number> = {};
-  for (const obj of selectedObjects) {
-    typeCounts[obj.object_type] = (typeCounts[obj.object_type] || 0) + 1;
-  }
+  const bookableObjects = allObjects.filter(o => o.object_type === 'room' || o.object_type === 'desk');
+  const assignedCount = bookableObjects.filter(o => o.svg_id && o.svg_id !== o.id).length;
 
   return (
     <div className="lbl-panel">
       <div className="lbl-header">
         <h3>Data Labelling</h3>
-        <span className="lbl-count">
-          {selectedObjects.length} selected
-        </span>
+        <span className="lbl-count">{assignedCount}/{bookableObjects.length} labelled</span>
       </div>
 
-      {/* Selection summary */}
-      {selectedObjects.length > 0 && (
-        <div className="lbl-summary">
-          {Object.entries(typeCounts).map(([type, count]) => (
-            <span key={type} className="lbl-tag">
-              {count} {type}{count > 1 ? 's' : ''}
-            </span>
-          ))}
+      {/* Tabs */}
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg)' }}>
+        {([
+          { id: 'assign' as const, label: 'Assign IDs' },
+          { id: 'bulk' as const, label: 'Bulk Edit' },
+          { id: 'export' as const, label: 'Import/Export' },
+        ]).map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              flex: 1, padding: '7px 4px', border: 'none', cursor: 'pointer',
+              fontSize: '0.8rem', fontWeight: activeTab === tab.id ? 700 : 400,
+              color: activeTab === tab.id ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+              background: activeTab === tab.id ? 'var(--color-surface)' : 'transparent',
+              borderBottom: activeTab === tab.id ? '2px solid var(--color-primary)' : '2px solid transparent',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Assign IDs Tab ── */}
+      {activeTab === 'assign' && (
+        <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* Import CSV of IDs */}
+          <div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+              1. Import ID list (CSV)
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                className="btn btn-secondary btn-sm"
+                style={{ flex: 1, fontSize: '0.82rem' }}
+                onClick={() => importCsvRef.current?.click()}
+              >
+                {importedIds.length > 0 ? `${importedIds.length} IDs loaded` : 'Choose CSV file'}
+              </button>
+              {importedIds.length > 0 && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.82rem', color: '#dc2626' }}
+                  onClick={() => setImportedIds([])}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <input ref={importCsvRef} type="file" accept=".csv,.txt" style={{ display: 'none' }} onChange={handleImportIds} />
+            <div style={{ fontSize: '0.82rem', color: 'var(--color-text-secondary)', marginTop: 3 }}>
+              CSV format: id, label (optional), type (optional)
+            </div>
+          </div>
+
+          {/* Step 2: Select object */}
+          {importedIds.length > 0 && (
+            <>
+              <div>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                  2. Click a room/desk on canvas
+                </div>
+                {selectedObj ? (
+                  <div style={{
+                    padding: '6px 10px', borderRadius: 6,
+                    background: 'var(--color-primary-light)', border: '1px solid var(--color-primary)',
+                    fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-primary)',
+                  }}>
+                    Selected: {selectedObj.label || selectedObj.svg_id || selectedObj.object_type}
+                    <span style={{ fontSize: '0.82rem', fontWeight: 400, marginLeft: 6, opacity: 0.7 }}>
+                      ({selectedObj.object_type})
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: '6px 10px', borderRadius: 6,
+                    background: '#fffbeb', border: '1px solid #fde68a',
+                    fontSize: '0.82rem', color: '#92400e',
+                  }}>
+                    Click a room or desk on the canvas to select it
+                  </div>
+                )}
+              </div>
+
+              {/* Step 3: Pick an ID */}
+              <div>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                  3. Pick an ID to assign
+                </div>
+                {/* Search */}
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search IDs..."
+                  style={{
+                    width: '100%', padding: '5px 8px', border: '1px solid var(--color-border)',
+                    borderRadius: 6, fontSize: '0.82rem', marginBottom: 4,
+                    background: 'var(--color-bg)', outline: 'none',
+                  }}
+                />
+                {/* ID list */}
+                <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: 6 }}>
+                  {unassignedIds.length === 0 && assignedIds.length === 0 && (
+                    <div style={{ padding: 12, textAlign: 'center', fontSize: '0.82rem', color: 'var(--color-text-secondary)' }}>
+                      {searchQuery ? 'No matches' : 'All IDs assigned'}
+                    </div>
+                  )}
+                  {unassignedIds.map(item => (
+                    <div
+                      key={item.id}
+                      onClick={() => selectedObj && handleAssign(item)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '5px 10px', borderBottom: '1px solid var(--color-border)',
+                        cursor: selectedObj ? 'pointer' : 'default',
+                        fontSize: '0.82rem',
+                        opacity: selectedObj ? 1 : 0.5,
+                        background: 'transparent',
+                        transition: 'background 0.1s',
+                      }}
+                      onMouseEnter={e => { if (selectedObj) (e.currentTarget.style.background = 'var(--color-primary-light)'); }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#94a3b8', flexShrink: 0 }} />
+                      <span style={{ fontWeight: 500, flex: 1 }}>{item.id}</span>
+                      {item.label && <span style={{ fontSize: '0.82rem', color: 'var(--color-text-secondary)' }}>{item.label}</span>}
+                      {item.type && <span style={{ fontSize: '0.82rem', padding: '1px 4px', borderRadius: 3, background: 'var(--color-bg)', color: 'var(--color-text-secondary)' }}>{item.type}</span>}
+                    </div>
+                  ))}
+                  {assignedIds.length > 0 && (
+                    <>
+                      <div style={{ padding: '4px 10px', fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-secondary)', background: 'var(--color-bg)', textTransform: 'uppercase' }}>
+                        Assigned ({assignedIds.length})
+                      </div>
+                      {assignedIds.map(item => (
+                        <div
+                          key={item.id}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '4px 10px', borderBottom: '1px solid var(--color-border)',
+                            fontSize: '0.82rem', opacity: 0.6,
+                          }}
+                        >
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
+                          <span style={{ fontWeight: 500, flex: 1, textDecoration: 'line-through' }}>{item.id}</span>
+                          <button
+                            onClick={() => handleUnassign(item)}
+                            style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.82rem', color: '#dc2626', padding: '2px 4px' }}
+                          >
+                            undo
+                          </button>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
-      {/* Select all by type */}
-      <div className="lbl-section">
-        <div className="lbl-section-title">Select by Type</div>
-        <div className="lbl-row">
-          <select
-            className="form-input"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value as MapObjectType | '')}
-          >
-            <option value="">-- Choose type --</option>
-            {OBJECT_TYPES.map((t) => {
-              const count = allObjects.filter((o) => o.object_type === t).length;
-              return (
-                <option key={t} value={t}>
-                  {t} ({count})
-                </option>
-              );
-            })}
-          </select>
-          <button
-            className="btn btn-secondary btn-sm"
-            disabled={!filterType}
-            onClick={handleSelectByType}
-          >
-            Select All
-          </button>
-        </div>
-      </div>
+      {/* ── Bulk Edit Tab ── */}
+      {activeTab === 'bulk' && (
+        <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* Select by type */}
+          <div className="lbl-section">
+            <div className="lbl-section-title">Select by Type</div>
+            <div className="lbl-row">
+              <select className="form-input" value={filterType} onChange={e => setFilterType(e.target.value as MapObjectType | '')}>
+                <option value="">-- Choose type --</option>
+                {(['room', 'desk', 'zone', 'area', 'amenity', 'decorative', 'parking', 'locker'] as MapObjectType[]).map(t => {
+                  const count = allObjects.filter(o => o.object_type === t).length;
+                  return <option key={t} value={t}>{t} ({count})</option>;
+                })}
+              </select>
+              <button className="btn btn-secondary btn-sm" disabled={!filterType} onClick={handleSelectByType}>Select All</button>
+            </div>
+          </div>
 
-      {/* Bulk set type */}
-      <div className="lbl-section">
-        <div className="lbl-section-title">Bulk Set Type</div>
-        <div className="lbl-row">
-          <select
-            className="form-input"
-            value={bulkType}
-            onChange={(e) => setBulkType(e.target.value as MapObjectType | '')}
-          >
-            <option value="">-- Choose type --</option>
-            {OBJECT_TYPES.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-          <button
-            className="btn btn-primary btn-sm"
-            disabled={!bulkType || selectedIds.length === 0}
-            onClick={handleBulkType}
-          >
-            Apply
-          </button>
-        </div>
-      </div>
+          {/* Bulk set type */}
+          <div className="lbl-section">
+            <div className="lbl-section-title">Bulk Set Type</div>
+            <div className="lbl-row">
+              <select className="form-input" value={bulkType} onChange={e => setBulkType(e.target.value as MapObjectType | '')}>
+                <option value="">-- Choose type --</option>
+                {(['room', 'desk', 'zone', 'area', 'amenity', 'decorative', 'parking', 'locker'] as MapObjectType[]).map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+              <button className="btn btn-primary btn-sm" disabled={!bulkType || selectedObjects.length === 0}
+                onClick={() => { if (bulkType) onBulkUpdate(selectedObjects.map(o => o.id), { object_type: bulkType }); }}>
+                Apply
+              </button>
+            </div>
+          </div>
 
-      {/* Bulk set entity binding */}
-      <div className="lbl-section">
-        <div className="lbl-section-title">Bulk Entity Binding</div>
-        <div className="lbl-field">
-          <select
-            className="form-input"
-            value={bulkEntityType}
-            onChange={(e) => setBulkEntityType(e.target.value as PlaceOSEntityType | '')}
-          >
-            {ENTITY_TYPES.map((t) => (
-              <option key={t} value={t}>{t || '-- None --'}</option>
-            ))}
-          </select>
+          {/* Auto-number */}
+          <div className="lbl-section">
+            <div className="lbl-section-title">Auto-Number Selected</div>
+            <div className="lbl-row">
+              <input type="text" className="form-input" value={autoPrefix} onChange={e => setAutoPrefix(e.target.value)} placeholder="Prefix" style={{ flex: 2 }} />
+              <input type="number" className="form-input" value={autoStart} min={0} onChange={e => setAutoStart(Number(e.target.value))} style={{ flex: 1 }} />
+            </div>
+            <button className="btn btn-primary btn-sm" disabled={selectedObjects.length === 0} onClick={handleAutoNumber} style={{ marginTop: 4, width: '100%' }}>
+              Generate Sequential IDs
+            </button>
+          </div>
         </div>
-        <div className="lbl-row">
-          <input
-            type="text"
-            className="form-input"
-            value={bulkEntityId}
-            onChange={(e) => setBulkEntityId(e.target.value)}
-            placeholder="Entity ID"
-            disabled={!bulkEntityType}
-          />
-          <button
-            className="btn btn-primary btn-sm"
-            disabled={selectedIds.length === 0}
-            onClick={handleBulkEntity}
-          >
-            Apply
-          </button>
-        </div>
-      </div>
+      )}
 
-      {/* Bulk set tags */}
-      <div className="lbl-section">
-        <div className="lbl-section-title">Bulk Set Tags</div>
-        <div className="lbl-row">
-          <input
-            type="text"
-            className="form-input"
-            value={bulkTags}
-            onChange={(e) => setBulkTags(e.target.value)}
-            placeholder="tag1, tag2, ..."
-          />
-          <button
-            className="btn btn-primary btn-sm"
-            disabled={selectedIds.length === 0}
-            onClick={handleBulkTags}
-          >
-            Apply
-          </button>
-        </div>
-      </div>
+      {/* ── Import/Export Tab ── */}
+      {activeTab === 'export' && (
+        <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="lbl-section">
+            <div className="lbl-section-title">Export All IDs</div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', margin: '0 0 6px' }}>
+              Export all room/desk/zone IDs with positions as CSV
+            </p>
+            <button className="btn btn-primary btn-sm" style={{ width: '100%' }} onClick={handleExportAssignments}>
+              Export IDs as CSV
+            </button>
+          </div>
 
-      {/* Auto-number */}
-      <div className="lbl-section">
-        <div className="lbl-section-title">Auto-Number</div>
-        <div className="lbl-row">
-          <input
-            type="text"
-            className="form-input"
-            value={autoPrefix}
-            onChange={(e) => setAutoPrefix(e.target.value)}
-            placeholder="Prefix (e.g. desk-)"
-            style={{ flex: 2 }}
-          />
-          <input
-            type="number"
-            className="form-input"
-            value={autoStart}
-            min={0}
-            onChange={(e) => setAutoStart(Number(e.target.value))}
-            style={{ flex: 1 }}
-          />
-        </div>
-        <button
-          className="btn btn-primary btn-sm"
-          disabled={selectedIds.length === 0}
-          onClick={handleAutoNumber}
-          style={{ marginTop: 6, width: '100%' }}
-        >
-          Generate Sequential IDs
-        </button>
-      </div>
+          <div className="lbl-section">
+            <div className="lbl-section-title">Full Object Export</div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', margin: '0 0 6px' }}>
+              Export all objects with full metadata
+            </p>
+            <button className="btn btn-secondary btn-sm" style={{ width: '100%' }} onClick={onExportCsv}>
+              Export Full CSV
+            </button>
+          </div>
 
-      {/* CSV Export / Import */}
-      <div className="lbl-section">
-        <div className="lbl-section-title">CSV Import / Export</div>
-        <div className="lbl-row">
-          <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={onExportCsv}>
-            Export CSV
-          </button>
-          <button
-            className="btn btn-secondary btn-sm"
-            style={{ flex: 1 }}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            Import CSV
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv"
-            style={{ display: 'none' }}
-            onChange={handleImport}
-          />
+          <div className="lbl-section">
+            <div className="lbl-section-title">Import Objects</div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', margin: '0 0 6px' }}>
+              Import objects from a CSV file (updates existing, creates new)
+            </p>
+            <button className="btn btn-secondary btn-sm" style={{ width: '100%' }} onClick={() => fileInputRef.current?.click()}>
+              Import CSV
+            </button>
+            <input ref={fileInputRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleLegacyImport} />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
