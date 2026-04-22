@@ -246,8 +246,8 @@ function computeSnap(
 let _importedLabelIds: { id: string; label?: string; assigned?: boolean }[] = [];
 let _labelIdListeners: Set<() => void> = new Set();
 function getImportedLabelIds() { return _importedLabelIds; }
-function setImportedLabelIdsGlobal(ids: { id: string; label?: string; assigned?: boolean }[]) {
-  _importedLabelIds = ids;
+function setImportedLabelIdsGlobal(ids: { id: string; label?: string; assigned?: boolean }[] | ((prev: { id: string; label?: string; assigned?: boolean }[]) => { id: string; label?: string; assigned?: boolean }[])) {
+  _importedLabelIds = typeof ids === 'function' ? ids(_importedLabelIds) : ids;
   _labelIdListeners.forEach(fn => fn());
 }
 
