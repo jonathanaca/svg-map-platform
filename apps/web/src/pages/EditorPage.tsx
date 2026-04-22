@@ -4275,23 +4275,48 @@ export default function EditorPage() {
             }}>
               <span>Duplicate</span><span className="context-menu-shortcut">{'\u2318'}D</span>
             </button>
-            {/* Select Group — only show if object has a group_id */}
+            {/* Group actions — only show if object has a group_id */}
             {(() => {
               const obj = objects.find(o => o.id === contextMenu.objectId);
               if (!obj?.group_id) return null;
-              const groupCount = objects.filter(o => o.group_id === obj.group_id).length;
+              const groupMembers = objects.filter(o => o.group_id === obj.group_id);
+              const groupCount = groupMembers.length;
+              const groupIds = groupMembers.map(o => o.id);
               return (
-                <button className="context-menu-item" onClick={() => {
-                  const members = objects.filter(o => o.group_id === obj.group_id).map(o => o.id);
-                  setSelectedObjectIds(new Set(members));
-                  setSelectedObjectId_(contextMenu.objectId);
-                  showToast(`Selected group (${members.length} objects)`, 'info');
-                  setContextMenu(null);
-                }}>
-                  <span>Select Group ({groupCount})</span>
-                </button>
+                <>
+                  <button className="context-menu-item" onClick={() => {
+                    setSelectedObjectIds(new Set(groupIds));
+                    setSelectedObjectId_(contextMenu.objectId);
+                    showToast(`Selected group (${groupCount}) — drag to move`, 'info');
+                    setContextMenu(null);
+                  }}>
+                    <span>Select Group ({groupCount})</span>
+                  </button>
+                  <button className="context-menu-item context-menu-item--danger" onClick={() => {
+                    for (const id of groupIds) {
+                      handleObjectDelete(id);
+                    }
+                    showToast(`Deleted group (${groupCount} objects)`, 'info');
+                    setContextMenu(null);
+                  }}>
+                    <span>Delete Group ({groupCount})</span>
+                  </button>
+                </>
               );
             })()}
+            {/* Multi-select actions */}
+            {selectedObjectIds.size > 1 && (
+              <button className="context-menu-item context-menu-item--danger" onClick={() => {
+                for (const id of selectedObjectIds) {
+                  handleObjectDelete(id);
+                }
+                showToast(`Deleted ${selectedObjectIds.size} objects`, 'info');
+                setSelectedObjectIds(new Set());
+                setContextMenu(null);
+              }}>
+                <span>Delete Selected ({selectedObjectIds.size})</span>
+              </button>
+            )}
             <div className="context-menu-sep" />
             <button className="context-menu-item" onClick={() => {
               const obj = objects.find(o => o.id === contextMenu.objectId);
