@@ -171,13 +171,16 @@ export default function LabellingPanel({
   }, [filterType, allObjects, onBulkUpdate]);
 
   const bookableObjects = allObjects.filter(o => o.object_type === 'room' || o.object_type === 'desk');
-  const assignedCount = bookableObjects.filter(o => o.svg_id && o.svg_id !== o.id).length;
+  const assignedFromList = importedIds.filter(i => i.assigned).length;
+  const assignedFromObjects = bookableObjects.filter(o => o.svg_id && o.svg_id !== o.id).length;
+  const assignedCount = importedIds.length > 0 ? assignedFromList : assignedFromObjects;
+  const totalCount = importedIds.length > 0 ? importedIds.length : bookableObjects.length;
 
   return (
     <div className="lbl-panel">
       <div className="lbl-header">
         <h3>Data Labelling</h3>
-        <span className="lbl-count">{assignedCount}/{bookableObjects.length} labelled</span>
+        <span className="lbl-count">{assignedCount}/{totalCount} labelled</span>
       </div>
 
       {/* Tabs */}
