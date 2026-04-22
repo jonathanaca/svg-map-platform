@@ -3013,29 +3013,8 @@ export default function EditorPage() {
                     <div
                       key={item.id}
                       onClick={() => {
-                        // Direct update — also update snapshots so undo won't revert it
                         const updates = { svg_id: item.id, label: item.label || item.id };
-                        setObjects(prev => {
-                          const newObjs = prev.map(o => o.id === obj.id ? { ...o, ...updates } : o);
-                          // Cancel pending snapshot timer
-                          if (snapshotTimer.current) { clearTimeout(snapshotTimer.current); snapshotTimer.current = null; }
-                          // Update snapshot AND all undo stack entries to preserve this assignment
-                          lastSnapshot.current = JSON.stringify(newObjs);
-                          // Patch all undo stack entries so this assignment survives undo
-                          for (let i = 0; i < undoStack.current.length; i++) {
-                            undoStack.current[i] = undoStack.current[i].map(o =>
-                              o.id === obj.id ? { ...o, ...updates } : o
-                            );
-                          }
-                          for (let i = 0; i < redoStack.current.length; i++) {
-                            redoStack.current[i] = redoStack.current[i].map(o =>
-                              o.id === obj.id ? { ...o, ...updates } : o
-                            );
-                          }
-                          return newObjs;
-                        });
-                        updateObject(obj.id, updates).catch(console.error);
-                        setDirty(true);
+                        handleObjectChange(obj.id, updates);
                         setImportedLabelIds(prev => prev.map(i => i.id === item.id ? { ...i, assigned: true } : i));
                         showToast(`Assigned "${item.id}" to ${obj.label || 'object'}`, 'success');
                       }}

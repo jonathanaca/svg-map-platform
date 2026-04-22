@@ -80,14 +80,11 @@ export default function LabellingPanel({
 
       const ids: ImportedId[] = dataLines.map(line => {
         const parts = line.split(',').map(p => p.trim().replace(/^["']|["']$/g, ''));
-        // Check if any existing object already has this ID
-        const existingObj = allObjects.find(o => o.svg_id === parts[0] || o.label === parts[0]);
         return {
           id: parts[0],
           label: parts[1] || undefined,
           type: parts[2] || undefined,
-          assigned: !!existingObj,
-          assignedTo: existingObj?.id,
+          assigned: false,
         };
       }).filter(item => item.id);
 
