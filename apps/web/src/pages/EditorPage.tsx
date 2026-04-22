@@ -306,6 +306,11 @@ export default function EditorPage() {
     setObjects(prev);
     setSelectedObjectId(null);
     setDirty(true);
+    // Sync imported label IDs with restored objects
+    setImportedLabelIds(ids => ids.map(item => {
+      const matchingObj = prev.find(o => o.svg_id === item.id || o.label === item.id);
+      return { ...item, assigned: !!matchingObj };
+    }));
     // Sync to API
     if (floorplanId) {
       bulkUpsertObjects(floorplanId, prev).catch(() => {});
@@ -320,6 +325,11 @@ export default function EditorPage() {
     setObjects(next);
     setSelectedObjectId(null);
     setDirty(true);
+    // Sync imported label IDs with restored objects
+    setImportedLabelIds(ids => ids.map(item => {
+      const matchingObj = next.find(o => o.svg_id === item.id || o.label === item.id);
+      return { ...item, assigned: !!matchingObj };
+    }));
     if (floorplanId) {
       bulkUpsertObjects(floorplanId, next).catch(() => {});
     }
