@@ -8,8 +8,6 @@ interface Props {
   onAutoNumber: (prefix: string, startFrom: number) => void;
   onExportCsv: () => void;
   onImportCsv: (file: File) => void;
-  importedIds?: { id: string; label?: string; assigned?: boolean }[];
-  onImportedIdsChange?: (ids: { id: string; label?: string; assigned?: boolean }[]) => void;
 }
 
 interface ImportedId {
@@ -20,6 +18,8 @@ interface ImportedId {
   assignedTo?: string; // object id it's assigned to
 }
 
+const LABEL_STORAGE_KEY = 'placeos-label-ids';
+
 export default function LabellingPanel({
   selectedObjects,
   allObjects,
@@ -27,15 +27,17 @@ export default function LabellingPanel({
   onAutoNumber,
   onExportCsv,
   onImportCsv,
-  importedIds: externalImportedIds,
-  onImportedIdsChange,
 }: Props) {
-  const [localImportedIds, setLocalImportedIds] = useState<ImportedId[]>([]);
-  const importedIds = externalImportedIds ?? localImportedIds;
+  // Store imported IDs in sessionStorage so they survive parent re-renders
+  const [importedIds, setImportedIdsState] = useState<ImportedId[]>(() => {
+    try { const s = sessionStorage.getItem(LABEL_STORAGE_KEY); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
   const setImportedIds = (ids: ImportedId[] | ((prev: ImportedId[]) => ImportedId[])) => {
-    const newIds = typeof ids === 'function' ? ids(importedIds) : ids;
-    setLocalImportedIds(newIds);
-    onImportedIdsChange?.(newIds);
+    setImportedIdsState(prev => {
+      const newIds = typeof ids === 'function' ? ids(prev) : ids;
+      try { sessionStorage.setItem(LABEL_STORAGE_KEY, JSON.stringify(newIds)); } catch {}
+      return newIds;
+    });
   };
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'assign' | 'bulk' | 'export'>('assign');
