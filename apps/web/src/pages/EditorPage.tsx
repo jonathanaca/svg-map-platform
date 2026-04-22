@@ -366,7 +366,8 @@ export default function EditorPage() {
 
   // Bottom panel tab state (for label mode)
   const [bottomTab, setBottomTab] = useState<'labelling' | 'validation'>('labelling');
-  const [leftSidebarTab, setLeftSidebarTab] = useState<'layers' | 'objects' | 'label'>('layers');
+  const [leftSidebarTab, setLeftSidebarTab] = useState<'layers' | 'objects'>('layers');
+  const [rightSidebarTab, setRightSidebarTab] = useState<'properties' | 'label'>('properties');
 
   // Editor search
   const [editorSearchQuery, setEditorSearchQuery] = useState('');
@@ -2339,7 +2340,7 @@ export default function EditorPage() {
               borderBottom: '1px solid var(--color-border)',
               background: 'var(--color-bg)',
             }}>
-              {(['layers', 'objects', 'label'] as const).map(tab => (
+              {(['layers', 'objects'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setLeftSidebarTab(tab)}
@@ -2391,16 +2392,6 @@ export default function EditorPage() {
                     setHighlightObjectId(obj.id);
                     setTimeout(() => setHighlightObjectId(null), 1500);
                   }}
-                />
-              )}
-              {leftSidebarTab === 'label' && (
-                <LabellingPanel
-                  selectedObjects={selectedObjects}
-                  allObjects={objects}
-                  onBulkUpdate={handleBulkUpdate}
-                  onAutoNumber={handleAutoNumber}
-                  onExportCsv={handleExportCsv}
-                  onImportCsv={handleImportCsv}
                 />
               )}
             </div>
@@ -2917,20 +2908,65 @@ export default function EditorPage() {
           />
         )}
 
-        {/* Right sidebar: Properties Panel (design mode) */}
+        {/* Right sidebar: Properties + Label (design mode) */}
         {editorMode === 'design' && (
           <div
             style={{
               background: 'var(--color-surface)',
               borderLeft: '1px solid var(--color-border)',
-              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
             }}
           >
-            <PropertiesPanel
-              object={selectedObject}
-              onChange={handleObjectChange}
-              onDelete={handleObjectDelete}
-            />
+            {/* Tab switcher */}
+            <div style={{
+              display: 'flex',
+              borderBottom: '1px solid var(--color-border)',
+              background: 'var(--color-bg)',
+              flexShrink: 0,
+            }}>
+              {(['properties', 'label'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setRightSidebarTab(tab)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 0',
+                    border: 'none',
+                    background: rightSidebarTab === tab ? 'var(--color-surface)' : 'transparent',
+                    borderBottom: rightSidebarTab === tab ? '2px solid var(--color-primary)' : '2px solid transparent',
+                    cursor: 'pointer',
+                    fontSize: '0.78rem',
+                    fontWeight: rightSidebarTab === tab ? 700 : 500,
+                    color: rightSidebarTab === tab ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {tab === 'label' ? 'Labelling' : 'Properties'}
+                </button>
+              ))}
+            </div>
+            {/* Tab content */}
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {rightSidebarTab === 'properties' && (
+                <PropertiesPanel
+                  object={selectedObject}
+                  onChange={handleObjectChange}
+                  onDelete={handleObjectDelete}
+                />
+              )}
+              {rightSidebarTab === 'label' && (
+                <LabellingPanel
+                  selectedObjects={selectedObjects}
+                  allObjects={objects}
+                  onBulkUpdate={handleBulkUpdate}
+                  onAutoNumber={handleAutoNumber}
+                  onExportCsv={handleExportCsv}
+                  onImportCsv={handleImportCsv}
+                />
+              )}
+            </div>
           </div>
         )}
 
