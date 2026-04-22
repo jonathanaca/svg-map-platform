@@ -3013,9 +3013,14 @@ export default function EditorPage() {
                     <div
                       key={item.id}
                       onClick={() => {
-                        // Direct update — bypass undo so label assignments persist
+                        // Direct update — also update the undo snapshot so undo won't revert it
                         const updates = { svg_id: item.id, label: item.label || item.id };
-                        setObjects(prev => prev.map(o => o.id === obj.id ? { ...o, ...updates } : o));
+                        setObjects(prev => {
+                          const newObjs = prev.map(o => o.id === obj.id ? { ...o, ...updates } : o);
+                          // Update the snapshot so undo doesn't revert label assignments
+                          lastSnapshot.current = JSON.stringify(newObjs);
+                          return newObjs;
+                        });
                         updateObject(obj.id, updates).catch(console.error);
                         setDirty(true);
                         setImportedLabelIds(prev => prev.map(i => i.id === item.id ? { ...i, assigned: true } : i));
