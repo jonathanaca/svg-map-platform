@@ -512,13 +512,23 @@ export default function EditorPage() {
   // ── Coordinate conversion (FloorplanEditor pattern) ─────────────────
   function toSvgCoords(clientX: number, clientY: number): { x: number; y: number } {
     if (!svgRef.current) return { x: 0, y: 0 };
+    // Use getScreenCTM for accurate coordinate mapping including all transforms
+    const ctm = svgRef.current.getScreenCTM();
+    if (ctm) {
+      const pt = svgRef.current.createSVGPoint();
+      pt.x = clientX;
+      pt.y = clientY;
+      const svgPt = pt.matrixTransform(ctm.inverse());
+      return { x: Math.round(svgPt.x), y: Math.round(svgPt.y) };
+    }
+    // Fallback: manual calculation
     const rect = svgRef.current.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
     const vb = svgRef.current.viewBox.baseVal;
-    // SVG has no explicit height so aspect ratio is preserved: scale = rect.width / vb.width
-    const scale = rect.width / vb.width;
-    const x = (clientX - rect.left) / scale;
-    const y = (clientY - rect.top) / scale;
+    const scaleX = rect.width / vb.width;
+    const scaleY = rect.height / vb.height;
+    const x = (clientX - rect.left) / scaleX;
+    const y = (clientY - rect.top) / scaleY;
     return { x: Math.round(x), y: Math.round(y) };
   }
 
