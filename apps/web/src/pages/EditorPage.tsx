@@ -165,6 +165,47 @@ function layerToObjectType(layerId: string): MapObjectType {
   }
 }
 
+// ── Wall outline clamping ──
+
+function pointInPolygon(px: number, py: number, polygon: { x: number; y: number }[]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x, yi = polygon[i].y;
+    const xj = polygon[j].x, yj = polygon[j].y;
+    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function clampToOutline(px: number, py: number, outlineObj: MapObject): { x: number; y: number } {
+  const g = outlineObj.geometry;
+  if (g.type === 'polygon' && g.points && g.points.length >= 3) {
+    if (pointInPolygon(px, py, g.points)) return { x: px, y: py };
+    // Snap to nearest edge point
+    let nearest = { x: px, y: py };
+    let minDist = Infinity;
+    for (let i = 0; i < g.points.length; i++) {
+      const a = g.points[i];
+      const b = g.points[(i + 1) % g.points.length];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const lenSq = dx * dx + dy * dy;
+      const t = lenSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - a.x) * dx + (py - a.y) * dy) / lenSq));
+      const p = { x: a.x + t * dx, y: a.y + t * dy };
+      const dist = (p.x - px) ** 2 + (p.y - py) ** 2;
+      if (dist < minDist) { minDist = dist; nearest = p; }
+    }
+    return { x: Math.round(nearest.x), y: Math.round(nearest.y) };
+  }
+  if (g.type === 'rect') {
+    const rx = g.x ?? 0, ry = g.y ?? 0, rw = g.width ?? 0, rh = g.height ?? 0;
+    if (px >= rx && px <= rx + rw && py >= ry && py <= ry + rh) return { x: px, y: py };
+    return { x: Math.round(Math.max(rx, Math.min(rx + rw, px))), y: Math.round(Math.max(ry, Math.min(ry + rh, py))) };
+  }
+  return { x: px, y: py };
+}
+
 const DEFAULT_EDITOR_STATE: EditorState = {
   objects: [],
   viewport: { x: 0, y: 0, zoom: 1 },
@@ -876,6 +917,13 @@ export default function EditorPage() {
         const gs = editorState.gridSize;
         wx = Math.round(wx / gs) * gs;
         wy = Math.round(wy / gs) * gs;
+      }
+      // Clamp to floor outline if one exists
+      const outlineObj = objects.find(o => o.svg_id === 'floor-outline');
+      if (outlineObj) {
+        const clamped = clampToOutline(wx, wy, outlineObj);
+        wx = clamped.x;
+        wy = clamped.y;
       }
       if (!wallStartRef.current) {
         // First click — set start point
