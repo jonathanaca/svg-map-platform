@@ -3030,7 +3030,6 @@ export default function EditorPage() {
                   onAutoNumber={handleAutoNumber}
                   onExportCsv={handleExportCsv}
                   onImportCsv={handleImportCsv}
-                  importedIds={importedLabelIds}
                 />
               )}
             </div>
@@ -4124,7 +4123,6 @@ export default function EditorPage() {
                   onAutoNumber={handleAutoNumber}
                   onExportCsv={handleExportCsv}
                   onImportCsv={handleImportCsv}
-                  importedIds={importedLabelIds}
                 />
               )}
               {bottomTab === 'validation' && floorplanId && (
