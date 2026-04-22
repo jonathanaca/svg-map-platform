@@ -2991,9 +2991,22 @@ export default function EditorPage() {
                         lines.push(`    </g>`);
                       } else if (g.type === 'polygon' && g.points) {
                         const pts = g.points.map(p => `${p.x},${p.y}`).join(' ');
-                        lines.push(`    <polygon id="${svgId}" points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" data-type="${obj.object_type}" data-label="${label}" />`);
+                        const cx = g.points.reduce((s, p) => s + p.x, 0) / g.points.length;
+                        const cy = g.points.reduce((s, p) => s + p.y, 0) / g.points.length;
+                        lines.push(`    <g id="${svgId}">`);
+                        lines.push(`      <polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" data-type="${obj.object_type}" data-label="${label}" />`);
+                        if (label) {
+                          lines.push(`      <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-size="10" font-weight="600" font-family="Arial, sans-serif">${label}</text>`);
+                        }
+                        lines.push(`    </g>`);
                       } else if (g.type === 'circle') {
-                        lines.push(`    <circle id="${svgId}" cx="${g.x ?? 0}" cy="${g.y ?? 0}" r="${g.r ?? 10}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" data-type="${obj.object_type}" data-label="${label}" />`);
+                        const cx = g.x ?? 0, cy = g.y ?? 0, cr = g.r ?? 10;
+                        lines.push(`    <g id="${svgId}">`);
+                        lines.push(`      <circle cx="${cx}" cy="${cy}" r="${cr}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" data-type="${obj.object_type}" data-label="${label}" />`);
+                        if (label) {
+                          lines.push(`      <text x="${cx}" y="${cy + cr + 10}" text-anchor="middle" dominant-baseline="central" fill="${stroke}" font-size="8" font-weight="600" font-family="Arial, sans-serif">${label}</text>`);
+                        }
+                        lines.push(`    </g>`);
                       }
                     }
                     lines.push(`  </g>`);
