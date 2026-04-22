@@ -261,14 +261,18 @@ export default function EditorPage() {
   // Object state (loaded from API)
   const [objects, setObjects] = useState<MapObject[]>([]);
   const [selectedObjectId, setSelectedObjectId_] = useState<string | null>(null);
-  const [selectedObjectIds, setSelectedObjectIds] = useState<Set<string>>(new Set());
-  const [marquee, setMarquee] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+  const [selectedObjectIds, setSelectedObjectIds_] = useState<Set<string>>(new Set());
+  const selectedObjectIdsRef = useRef<Set<string>>(new Set());
+  const setSelectedObjectIds = useCallback((ids: Set<string>) => {
+    selectedObjectIdsRef.current = ids;
+    setSelectedObjectIds_(ids);
+  }, []);
 
   // Wrapper: keep single selection in sync with multi-selection
   const setSelectedObjectId = useCallback((id: string | null) => {
     setSelectedObjectId_(id);
     setSelectedObjectIds(id ? new Set([id]) : new Set());
-  }, []);
+  }, [setSelectedObjectIds]);
 
   // Undo/Redo history
   const undoStack = useRef<MapObject[][]>([]);
@@ -1142,7 +1146,7 @@ export default function EditorPage() {
             setSelectedObjectId_(next.size > 0 ? hitId : null);
             return next;
           });
-        } else if (selectedObjectIds.has(hitId) && selectedObjectIds.size > 1) {
+        } else if (selectedObjectIdsRef.current.has(hitId) && selectedObjectIdsRef.current.size > 1) {
           // Clicked an already-selected object in multi-select — keep selection, just set primary
           setSelectedObjectId_(hitId);
         } else {
@@ -1237,7 +1241,8 @@ export default function EditorPage() {
       const dx = rawX - (obj.geometry.x ?? 0);
       const dy = rawY - (obj.geometry.y ?? 0);
 
-      const idsToMove = selectedObjectIds.size > 1 ? selectedObjectIds : new Set([dragging.objectId]);
+      const currentIds = selectedObjectIdsRef.current;
+      const idsToMove = currentIds.size > 1 ? currentIds : new Set([dragging.objectId]);
 
       const otherRects = objects
         .filter((o) => !idsToMove.has(o.id) && o.visible)
@@ -1344,7 +1349,7 @@ export default function EditorPage() {
     if (rotating) { setRotating(null); return; }
     if (dragging) {
       // Persist the move for all selected objects
-      const idsToSave = selectedObjectIds.size > 1 ? selectedObjectIds : new Set([dragging.objectId]);
+      const idsToSave = selectedObjectIdsRef.current.size > 1 ? selectedObjectIdsRef.current : new Set([dragging.objectId]);
       for (const id of idsToSave) {
         const obj = objects.find((o) => o.id === id);
         if (obj) {
