@@ -2925,9 +2925,10 @@ export default function EditorPage() {
                   lines.push(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">`);
 
                   // Background
-                  lines.push(`  <rect x="0" y="0" width="${w}" height="${h}" fill="#ffffff" />`);
+                  const bgColor = (floorplan as any).background_color || '#ffffff';
+                  lines.push(`  <rect x="0" y="0" width="${w}" height="${h}" fill="${bgColor}" />`);
 
-                  // No background image in export — clean white canvas with objects only
+                  // No background image in export — clean canvas with objects only
 
                   // Helper: convert any color to rgba with specific opacity
                   const toFillOpacity = (hex: string, opacity: number): string => {
@@ -3044,6 +3045,9 @@ export default function EditorPage() {
                   clone.removeAttribute('style');
                   clone.querySelectorAll('[data-ui-only]').forEach(el => el.remove());
                   clone.querySelectorAll('defs').forEach(el => el.remove());
+                  // Set background color on the first rect
+                  const bgRect = clone.querySelector('rect');
+                  if (bgRect) bgRect.setAttribute('fill', (floorplan as any).background_color || '#ffffff');
 
                   const svgString = new XMLSerializer().serializeToString(clone);
                   const img = new Image();
@@ -3053,6 +3057,9 @@ export default function EditorPage() {
                     canvas.height = h * 2;
                     const ctx = canvas.getContext('2d')!;
                     ctx.scale(2, 2);
+                    // Fill background color first
+                    ctx.fillStyle = (floorplan as any).background_color || '#ffffff';
+                    ctx.fillRect(0, 0, w, h);
                     ctx.drawImage(img, 0, 0, w, h);
                     canvas.toBlob((blob) => {
                       if (!blob) return;
