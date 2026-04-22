@@ -368,6 +368,8 @@ export default function EditorPage() {
   const [bottomTab, setBottomTab] = useState<'labelling' | 'validation'>('labelling');
   const [leftSidebarTab, setLeftSidebarTab] = useState<'layers' | 'objects'>('layers');
   const [rightSidebarTab, setRightSidebarTab] = useState<'properties' | 'label'>('properties');
+  const [importedLabelIds, setImportedLabelIds] = useState<{ id: string; label?: string; assigned?: boolean }[]>([]);
+  const [labelSearchQuery, setLabelSearchQuery] = useState('');
 
   // Editor search
   const [editorSearchQuery, setEditorSearchQuery] = useState('');
@@ -2952,6 +2954,92 @@ export default function EditorPage() {
               </div>
             );
           })()}
+
+          {/* Label assignment popup on canvas */}
+          {rightSidebarTab === 'label' && selectedObject && importedLabelIds.length > 0 && (() => {
+            if (!svgRef.current || !containerRef.current) return null;
+            const obj = selectedObject;
+            const pt = svgRef.current.createSVGPoint();
+            pt.x = (obj.geometry.x ?? 0) + (obj.geometry.width ?? 100);
+            pt.y = (obj.geometry.y ?? 0);
+            const ctm = svgRef.current.getScreenCTM();
+            if (!ctm) return null;
+            const sp = pt.matrixTransform(ctm);
+            const cr = containerRef.current.getBoundingClientRect();
+            const q = labelSearchQuery.toLowerCase();
+            const filtered = labelSearchQuery.length >= 1
+              ? importedLabelIds.filter(i => !i.assigned && (i.id.toLowerCase().includes(q) || (i.label && i.label.toLowerCase().includes(q))))
+              : importedLabelIds.filter(i => !i.assigned);
+
+            return (
+              <div style={{
+                position: 'absolute',
+                left: Math.min(sp.x - cr.left + 12, cr.width - 260),
+                top: Math.max(sp.y - cr.top - 10, 10),
+                zIndex: 20,
+                width: 240,
+                background: '#fff',
+                borderRadius: 10,
+                boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
+                border: '1px solid var(--color-border)',
+                overflow: 'hidden',
+              }}>
+                {/* Header with object name */}
+                <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg)' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-text)' }}>
+                    {obj.label || obj.svg_id || 'Unnamed'}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                    {obj.object_type} &middot; {obj.svg_id || 'no ID'}
+                  </div>
+                </div>
+                {/* Search */}
+                <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--color-border)' }}>
+                  <input
+                    type="text"
+                    value={labelSearchQuery}
+                    onChange={e => setLabelSearchQuery(e.target.value)}
+                    placeholder="Search IDs to assign..."
+                    autoFocus
+                    style={{
+                      width: '100%', padding: '6px 8px', border: '1px solid var(--color-border)',
+                      borderRadius: 6, fontSize: '0.82rem', background: 'var(--color-bg)', outline: 'none',
+                    }}
+                  />
+                </div>
+                {/* ID list */}
+                <div style={{ maxHeight: 160, overflowY: 'auto' }}>
+                  {filtered.slice(0, 10).map(item => (
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        handleObjectChange(obj.id, { svg_id: item.id, label: item.label || item.id });
+                        setImportedLabelIds(prev => prev.map(i => i.id === item.id ? { ...i, assigned: true } : i));
+                        showToast(`Assigned "${item.id}" to ${obj.label || 'object'}`, 'success');
+                      }}
+                      style={{
+                        padding: '7px 12px', cursor: 'pointer', fontSize: '0.82rem',
+                        borderBottom: '1px solid var(--color-border)',
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        transition: 'background 0.1s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-primary-light)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#94a3b8', flexShrink: 0 }} />
+                      <span style={{ fontWeight: 500 }}>{item.id}</span>
+                      {item.label && <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginLeft: 'auto' }}>{item.label}</span>}
+                    </div>
+                  ))}
+                  {filtered.length === 0 && (
+                    <div style={{ padding: 12, textAlign: 'center', fontSize: '0.82rem', color: 'var(--color-text-secondary)' }}>
+                      {labelSearchQuery ? 'No matching IDs' : 'All IDs assigned'}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Minimap — fixed position over canvas area */}
@@ -3029,6 +3117,8 @@ export default function EditorPage() {
                   onAutoNumber={handleAutoNumber}
                   onExportCsv={handleExportCsv}
                   onImportCsv={handleImportCsv}
+                  importedIds={importedLabelIds}
+                  onImportedIdsChange={setImportedLabelIds}
                 />
               )}
             </div>
@@ -4122,6 +4212,8 @@ export default function EditorPage() {
                   onAutoNumber={handleAutoNumber}
                   onExportCsv={handleExportCsv}
                   onImportCsv={handleImportCsv}
+                  importedIds={importedLabelIds}
+                  onImportedIdsChange={setImportedLabelIds}
                 />
               )}
               {bottomTab === 'validation' && floorplanId && (

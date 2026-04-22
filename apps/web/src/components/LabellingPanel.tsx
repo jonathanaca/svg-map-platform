@@ -8,6 +8,8 @@ interface Props {
   onAutoNumber: (prefix: string, startFrom: number) => void;
   onExportCsv: () => void;
   onImportCsv: (file: File) => void;
+  importedIds?: { id: string; label?: string; assigned?: boolean }[];
+  onImportedIdsChange?: (ids: { id: string; label?: string; assigned?: boolean }[]) => void;
 }
 
 interface ImportedId {
@@ -25,8 +27,16 @@ export default function LabellingPanel({
   onAutoNumber,
   onExportCsv,
   onImportCsv,
+  importedIds: externalImportedIds,
+  onImportedIdsChange,
 }: Props) {
-  const [importedIds, setImportedIds] = useState<ImportedId[]>([]);
+  const [localImportedIds, setLocalImportedIds] = useState<ImportedId[]>([]);
+  const importedIds = externalImportedIds ?? localImportedIds;
+  const setImportedIds = (ids: ImportedId[] | ((prev: ImportedId[]) => ImportedId[])) => {
+    const newIds = typeof ids === 'function' ? ids(importedIds) : ids;
+    setLocalImportedIds(newIds);
+    onImportedIdsChange?.(newIds);
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'assign' | 'bulk' | 'export'>('assign');
   const [autoPrefix, setAutoPrefix] = useState('desk-');
