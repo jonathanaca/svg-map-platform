@@ -165,65 +165,6 @@ function layerToObjectType(layerId: string): MapObjectType {
   }
 }
 
-// ── Outline clamping helpers for wall tool ──
-
-function pointInPolygon(px: number, py: number, polygon: { x: number; y: number }[]): boolean {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].x, yi = polygon[i].y;
-    const xj = polygon[j].x, yj = polygon[j].y;
-    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
-
-function pointInRect(px: number, py: number, rx: number, ry: number, rw: number, rh: number): boolean {
-  return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh;
-}
-
-function nearestPointOnSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number): { x: number; y: number } {
-  const dx = bx - ax, dy = by - ay;
-  const lenSq = dx * dx + dy * dy;
-  if (lenSq === 0) return { x: ax, y: ay };
-  let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
-  t = Math.max(0, Math.min(1, t));
-  return { x: ax + t * dx, y: ay + t * dy };
-}
-
-function clampToOutline(px: number, py: number, outlineObj: MapObject): { x: number; y: number } {
-  const g = outlineObj.geometry;
-
-  // Check if point is inside the outline
-  if (g.type === 'polygon' && g.points && g.points.length >= 3) {
-    if (pointInPolygon(px, py, g.points)) return { x: px, y: py };
-    // Find nearest point on polygon boundary
-    let nearest = { x: px, y: py };
-    let minDist = Infinity;
-    for (let i = 0; i < g.points.length; i++) {
-      const a = g.points[i];
-      const b = g.points[(i + 1) % g.points.length];
-      const p = nearestPointOnSegment(px, py, a.x, a.y, b.x, b.y);
-      const dist = (p.x - px) ** 2 + (p.y - py) ** 2;
-      if (dist < minDist) { minDist = dist; nearest = p; }
-    }
-    return { x: Math.round(nearest.x), y: Math.round(nearest.y) };
-  }
-
-  if (g.type === 'rect') {
-    const rx = g.x ?? 0, ry = g.y ?? 0, rw = g.width ?? 0, rh = g.height ?? 0;
-    if (pointInRect(px, py, rx, ry, rw, rh)) return { x: px, y: py };
-    // Clamp to rect edges
-    return {
-      x: Math.round(Math.max(rx, Math.min(rx + rw, px))),
-      y: Math.round(Math.max(ry, Math.min(ry + rh, py))),
-    };
-  }
-
-  return { x: px, y: py };
-}
-
 const DEFAULT_EDITOR_STATE: EditorState = {
   objects: [],
   viewport: { x: 0, y: 0, zoom: 1 },
@@ -515,11 +456,10 @@ export default function EditorPage() {
     const rect = svgRef.current.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
     const vb = svgRef.current.viewBox.baseVal;
-    // Use both scaleX and scaleY for accuracy
-    const scaleX = rect.width / vb.width;
-    const scaleY = rect.height / vb.height;
-    const x = (clientX - rect.left) / scaleX;
-    const y = (clientY - rect.top) / scaleY;
+    // SVG has no explicit height so aspect ratio is preserved: scale = rect.width / vb.width
+    const scale = rect.width / vb.width;
+    const x = (clientX - rect.left) / scale;
+    const y = (clientY - rect.top) / scale;
     return { x: Math.round(x), y: Math.round(y) };
   }
 
@@ -937,14 +877,6 @@ export default function EditorPage() {
         wx = Math.round(wx / gs) * gs;
         wy = Math.round(wy / gs) * gs;
       }
-      // Clamp wall points to floor outline if one exists
-      const outlineObj = objects.find(o => o.svg_id === 'floor-outline' || (o.object_type === 'area' && o.svg_id?.includes('outline')));
-      if (outlineObj) {
-        const clamped = clampToOutline(wx, wy, outlineObj);
-        wx = clamped.x;
-        wy = clamped.y;
-      }
-
       if (!wallStartRef.current) {
         // First click — set start point
         setWallStart({ x: wx, y: wy });
