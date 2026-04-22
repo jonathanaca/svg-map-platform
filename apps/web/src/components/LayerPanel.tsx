@@ -11,6 +11,7 @@ interface Props {
 }
 
 export const DEFAULT_LAYERS: EditorLayer[] = [
+  { id: 'guide',      name: 'Guide',      visible: true, locked: true,  opacity: 0.5, order: -1 },
   { id: 'background', name: 'Background', visible: true, locked: false, opacity: 1, order: 0 },
   { id: 'walls',      name: 'Walls',      visible: true, locked: false, opacity: 1, order: 1 },
   { id: 'rooms',      name: 'Rooms',      visible: true, locked: false, opacity: 1, order: 2 },

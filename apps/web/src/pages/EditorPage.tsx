@@ -1697,36 +1697,37 @@ export default function EditorPage() {
         </div>
       )}
 
-      {/* Top Toolbar */}
-      <div className="dc-toolbar" style={{ borderRadius: 0, borderLeft: 'none', borderRight: 'none', position: 'sticky', top: 0, zIndex: 10 }}>
-        {/* Back + Breadcrumb */}
-        <button
-          className="dc-tool-btn"
-          onClick={() => navigate(`/project/${floorplan.project_id}`)}
-          title="Back to project"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-        </button>
-        <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text)', marginRight: 4 }}>Floor Plan Studio</span>
-        <span style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>/ {floorplan.floor_name}</span>
-        <span className="dc-toolbar-sep" />
-
-        {/* Mode switcher */}
-        <div className="dc-toolbar-group" style={{ background: 'var(--color-bg)', borderRadius: 6, padding: 2 }}>
+      {/* PlaceOS Navigation Bar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 16px', height: 44,
+        background: 'linear-gradient(135deg, #006A9D 0%, #005580 100%)',
+        borderBottom: '1px solid #004a6e',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            onClick={() => navigate(`/project/${floorplan.project_id}`)}
+            style={{ border: 'none', background: 'rgba(255,255,255,0.15)', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#fff', fontSize: '0.82rem', fontWeight: 500 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Back
+          </button>
+          <span style={{ color: '#fff', fontSize: '0.95rem', fontWeight: 700, letterSpacing: '-0.3px' }}>PlaceOS</span>
+          <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.82rem' }}>/ Floor Plan Studio</span>
+          <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.82rem' }}>/ {floorplan.floor_name}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {([
             { mode: 'design' as EditorMode, label: 'Design' },
             { mode: 'preview' as EditorMode, label: 'Preview' },
           ]).map(({ mode, label }) => (
             <button
               key={mode}
-              className="dc-tool-btn"
               style={{
-                background: editorMode === mode ? 'var(--color-primary)' : 'transparent',
-                color: editorMode === mode ? '#fff' : 'var(--color-text)',
-                borderRadius: 4,
-                padding: '4px 12px',
-                fontWeight: editorMode === mode ? 600 : 400,
-                fontSize: '0.78rem',
+                padding: '6px 16px', border: 'none', borderRadius: 6, cursor: 'pointer',
+                fontSize: '0.82rem', fontWeight: 600,
+                background: editorMode === mode ? '#fff' : 'rgba(255,255,255,0.12)',
+                color: editorMode === mode ? '#006A9D' : 'rgba(255,255,255,0.85)',
                 transition: 'all 150ms ease',
               }}
               onClick={() => {
@@ -1740,35 +1741,103 @@ export default function EditorPage() {
             </button>
           ))}
         </div>
+      </div>
 
-        <span className="dc-toolbar-sep" />
-
-        {/* Drawing tools (design mode only) */}
+      {/* Top Toolbar */}
+      <div className="dc-toolbar" style={{ borderRadius: 0, borderLeft: 'none', borderRight: 'none', position: 'sticky', top: 0, zIndex: 10 }}>
+        {/* Tools (design mode only) */}
         {editorMode === 'design' && (
           <>
+            {/* Select */}
             <div className="dc-toolbar-group">
-              {([
-                { tool: 'select' as Tool, label: 'Select', hint: '(V)', svgIcon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg> },
-                { tool: 'rect' as Tool, label: 'Rect', hint: '(R)', svgIcon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> },
-                { tool: 'polygon' as Tool, label: 'Polygon', hint: '(P)', svgIcon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 22 8.5 18 20 6 20 2 8.5"/></svg> },
-                { tool: 'wall' as Tool, label: 'Wall', hint: '(W)', svgIcon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="4" y1="20" x2="20" y2="4"/></svg> },
-                { tool: 'pen' as Tool, label: 'Place', hint: '(Click)', svgIcon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg> },
-              ]).map(({ tool, label, hint, svgIcon }) => (
-                <button
-                  key={tool}
-                  className={`dc-tool-btn ${activeTool === tool && !placingAmenity && !drawingOutline ? 'dc-tool-btn--active' : ''}`}
-                  onClick={() => { setActiveTool(tool); setOutlinePoints([]); setDrawingOutline(false); setRectDraw(null); setPlacingAmenity(null); setShowAmenityPicker(false); setPlacingFurniture(null); setShowFurniturePicker(false); setWallStart(null); setWallPreview(null); setPlacingDeskLayout(null); }}
-                  title={`${label} ${hint}`}
-                >
-                  {svgIcon}
-                  <span className="dc-tool-label">{label}</span>
-                </button>
-              ))}
+              <button
+                className={`dc-tool-btn ${activeTool === 'select' && !placingAmenity && !drawingOutline ? 'dc-tool-btn--active' : ''}`}
+                onClick={() => { setActiveTool('select'); setOutlinePoints([]); setDrawingOutline(false); setRectDraw(null); setPlacingAmenity(null); setShowAmenityPicker(false); setPlacingFurniture(null); setShowFurniturePicker(false); setWallStart(null); setWallPreview(null); setPlacingDeskLayout(null); }}
+                title="Select (V)"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
+                <span className="dc-tool-label">Select</span>
+              </button>
             </div>
-            {/* Wall tool thickness control */}
+            <span className="dc-toolbar-sep" />
+
+            {/* Shapes: Rect + Polygon + Place */}
+            <div className="dc-toolbar-group">
+              <button
+                className={`dc-tool-btn ${activeTool === 'rect' && !placingAmenity && !drawingOutline ? 'dc-tool-btn--active' : ''}`}
+                onClick={() => { setActiveTool('rect'); setOutlinePoints([]); setDrawingOutline(false); setRectDraw(null); setPlacingAmenity(null); setShowAmenityPicker(false); setPlacingFurniture(null); setShowFurniturePicker(false); setWallStart(null); setWallPreview(null); setPlacingDeskLayout(null); }}
+                title="Rect (R)"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                <span className="dc-tool-label">Rect</span>
+              </button>
+              <button
+                className={`dc-tool-btn ${activeTool === 'polygon' && !placingAmenity && !drawingOutline ? 'dc-tool-btn--active' : ''}`}
+                onClick={() => { setActiveTool('polygon'); setOutlinePoints([]); setDrawingOutline(false); setRectDraw(null); setPlacingAmenity(null); setShowAmenityPicker(false); setPlacingFurniture(null); setShowFurniturePicker(false); setWallStart(null); setWallPreview(null); setPlacingDeskLayout(null); }}
+                title="Polygon (P)"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 22 8.5 18 20 6 20 2 8.5"/></svg>
+                <span className="dc-tool-label">Poly</span>
+              </button>
+              <button
+                className={`dc-tool-btn ${activeTool === 'pen' && !placingAmenity && !drawingOutline ? 'dc-tool-btn--active' : ''}`}
+                onClick={() => { setActiveTool('pen'); setOutlinePoints([]); setDrawingOutline(false); setRectDraw(null); setPlacingAmenity(null); setShowAmenityPicker(false); setPlacingFurniture(null); setShowFurniturePicker(false); setWallStart(null); setWallPreview(null); setPlacingDeskLayout(null); }}
+                title="Place (C)"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+                <span className="dc-tool-label">Place</span>
+              </button>
+            </div>
+            {/* Place size controls */}
+            {activeTool === 'pen' && !placingAmenity && !drawingOutline && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 4 }}>
+                <label style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>W</label>
+                <input
+                  type="text"
+                  defaultValue={placeWidth}
+                  key={'pw-' + placeWidth}
+                  onBlur={(e) => { const v = parseInt(e.target.value) || 80; setPlaceWidth(Math.max(10, v)); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur(); } }}
+                  style={{ width: 40, padding: '2px 3px', fontSize: 11, borderRadius: 4, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', textAlign: 'center' }}
+                  title="Place width (px)"
+                />
+                <label style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>H</label>
+                <input
+                  type="text"
+                  defaultValue={placeHeight}
+                  key={'ph-' + placeHeight}
+                  onBlur={(e) => { const v = parseInt(e.target.value) || 60; setPlaceHeight(Math.max(10, v)); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur(); } }}
+                  style={{ width: 40, padding: '2px 3px', fontSize: 11, borderRadius: 4, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', textAlign: 'center' }}
+                  title="Place height (px)"
+                />
+              </div>
+            )}
+            <span className="dc-toolbar-sep" />
+
+            {/* Drawing: Outline + Wall */}
+            <div className="dc-toolbar-group">
+              <button
+                className={`dc-tool-btn ${drawingOutline ? 'dc-tool-btn--active' : ''}`}
+                onClick={startOutlineDrawing}
+                title="Draw floor outline (click points, click green dot to close)"
+                style={drawingOutline ? { background: '#ede9fe', color: '#7c3aed', borderColor: '#7c3aed' } : {}}
+              >
+                <span className="dc-tool-label" style={{ fontSize: '0.68rem' }}>{drawingOutline ? `Drawing... (${outlinePoints.length})` : 'Outline'}</span>
+              </button>
+              <button
+                className={`dc-tool-btn ${activeTool === 'wall' && !placingAmenity && !drawingOutline ? 'dc-tool-btn--active' : ''}`}
+                onClick={() => { setActiveTool('wall'); setOutlinePoints([]); setDrawingOutline(false); setRectDraw(null); setPlacingAmenity(null); setShowAmenityPicker(false); setPlacingFurniture(null); setShowFurniturePicker(false); setWallStart(null); setWallPreview(null); setPlacingDeskLayout(null); }}
+                title="Wall (W)"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="4" y1="20" x2="20" y2="4"/></svg>
+                <span className="dc-tool-label">Wall</span>
+              </button>
+            </div>
+            {/* Wall thickness control */}
             {activeTool === 'wall' && (
-              <div className="dc-toolbar-group" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <label style={{ fontSize: 11, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>Thickness</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 4 }}>
+                <label style={{ fontSize: 10, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>Thickness</label>
                 <input
                   type="range"
                   min={2}
@@ -1778,249 +1847,229 @@ export default function EditorPage() {
                   style={{ width: 60 }}
                   title={`Wall thickness: ${wallThickness}px`}
                 />
-                <span style={{ fontSize: 11, color: 'var(--color-text-muted)', minWidth: 24 }}>{wallThickness}</span>
-                <span style={{ fontSize: 10, color: 'var(--color-text-secondary)' }}>Hold Shift for straight lines</span>
+                <span style={{ fontSize: 10, color: 'var(--color-text-muted)', minWidth: 18 }}>{wallThickness}</span>
               </div>
             )}
-            {/* Place tool size controls */}
-            {activeTool === 'pen' && !placingAmenity && !drawingOutline && (
-              <div className="dc-toolbar-group" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <label style={{ fontSize: 11, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>W</label>
-                <input
-                  type="text"
-                  defaultValue={placeWidth}
-                  key={'pw-' + placeWidth}
-                  onBlur={(e) => { const v = parseInt(e.target.value) || 80; setPlaceWidth(Math.max(10, v)); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur(); } }}
-                  style={{ width: 48, padding: '3px 4px', fontSize: 12, borderRadius: 4, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', textAlign: 'center' }}
-                  title="Place width (px)"
-                />
-                <label style={{ fontSize: 11, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>H</label>
-                <input
-                  type="text"
-                  defaultValue={placeHeight}
-                  key={'ph-' + placeHeight}
-                  onBlur={(e) => { const v = parseInt(e.target.value) || 60; setPlaceHeight(Math.max(10, v)); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur(); } }}
-                  style={{ width: 48, padding: '3px 4px', fontSize: 12, borderRadius: 4, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', textAlign: 'center' }}
-                  title="Place height (px)"
-                />
+            <span className="dc-toolbar-sep" />
+
+            {/* Assets & Amenities */}
+            <div className="dc-toolbar-group">
+              {/* Desk Layouts picker */}
+              <div style={{ position: 'relative' }} data-dropdown>
+                <button
+                  className={`dc-tool-btn ${placingDeskLayout ? 'dc-tool-btn--active' : ''}`}
+                  onClick={() => { setShowDeskLayoutPicker(!showDeskLayoutPicker); setShowFurniturePicker(false); setShowAmenityPicker(false); }}
+                  title="Place conjoined desk layouts"
+                  style={placingDeskLayout
+                    ? { background: '#eff6ff', color: '#2563eb', borderColor: '#2563eb' }
+                    : {}}
+                >
+                  <span className="dc-tool-label">{placingDeskLayout ? DESK_LAYOUTS.find(l => l.id === placingDeskLayout)?.label : 'Desk Layouts'}</span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                {showDeskLayoutPicker && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, zIndex: 100,
+                    background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+                    borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 4,
+                    minWidth: 200,
+                  }}>
+                    <div style={{ padding: '4px 8px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Rows</div>
+                    {DESK_LAYOUTS.filter(l => l.rows === 1).map(l => (
+                      <button
+                        key={l.id}
+                        onClick={() => { setPlacingDeskLayout(l.id); setShowDeskLayoutPicker(false); setPlacingFurniture(null); setPlacingAmenity(null); setActiveTool('select'); }}
+                        style={{
+                          display: 'block', width: '100%', padding: '6px 10px', border: 'none', borderRadius: 4,
+                          background: placingDeskLayout === l.id ? '#eff6ff' : 'transparent',
+                          cursor: 'pointer', fontSize: '0.75rem', fontWeight: 500, textAlign: 'left',
+                          color: 'var(--color-text)',
+                        }}
+                      >
+                        <span style={{ display: 'inline-flex', gap: 1, marginRight: 8, verticalAlign: 'middle' }}>
+                          {Array.from({ length: l.cols }).map((_, i) => (
+                            <span key={i} style={{ width: 8, height: 6, background: '#2563eb', borderRadius: 1, display: 'inline-block' }} />
+                          ))}
+                        </span>
+                        {l.label}
+                      </button>
+                    ))}
+                    <div style={{ padding: '4px 8px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderTop: '1px solid var(--color-border)', marginTop: 2 }}>Face to Face</div>
+                    {DESK_LAYOUTS.filter(l => l.rows >= 2).map(l => (
+                      <button
+                        key={l.id}
+                        onClick={() => { setPlacingDeskLayout(l.id); setShowDeskLayoutPicker(false); setPlacingFurniture(null); setPlacingAmenity(null); setActiveTool('select'); }}
+                        style={{
+                          display: 'block', width: '100%', padding: '6px 10px', border: 'none', borderRadius: 4,
+                          background: placingDeskLayout === l.id ? '#eff6ff' : 'transparent',
+                          cursor: 'pointer', fontSize: '0.75rem', fontWeight: 500, textAlign: 'left',
+                          color: 'var(--color-text)',
+                        }}
+                      >
+                        <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 1, marginRight: 8, verticalAlign: 'middle' }}>
+                          <span style={{ display: 'flex', gap: 1 }}>
+                            {Array.from({ length: l.cols }).map((_, i) => (
+                              <span key={i} style={{ width: 8, height: 6, background: '#2563eb', borderRadius: 1 }} />
+                            ))}
+                          </span>
+                          <span style={{ display: 'flex', gap: 1 }}>
+                            {Array.from({ length: l.cols }).map((_, i) => (
+                              <span key={i} style={{ width: 8, height: 6, background: '#93c5fd', borderRadius: 1 }} />
+                            ))}
+                          </span>
+                        </span>
+                        {l.label}
+                      </button>
+                    ))}
+                    {placingDeskLayout && (
+                      <button
+                        onClick={() => { setPlacingDeskLayout(null); setShowDeskLayoutPicker(false); }}
+                        style={{
+                          display: 'block', width: '100%', padding: '6px 10px', border: 'none', borderRadius: 4,
+                          background: '#fef2f2', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600,
+                          color: '#dc2626', textAlign: 'center', marginTop: 4,
+                        }}
+                      >
+                        Stop Placing
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
-            {/* Desk Layouts picker */}
-            <div style={{ position: 'relative' }} data-dropdown>
-              <button
-                className={`dc-tool-btn ${placingDeskLayout ? 'dc-tool-btn--active' : ''}`}
-                onClick={() => { setShowDeskLayoutPicker(!showDeskLayoutPicker); setShowFurniturePicker(false); setShowAmenityPicker(false); }}
-                title="Place conjoined desk layouts"
-                style={placingDeskLayout ? { background: '#eff6ff', color: '#2563eb', borderColor: '#2563eb' } : undefined}
-              >
-                <span className="dc-tool-label">{placingDeskLayout ? DESK_LAYOUTS.find(l => l.id === placingDeskLayout)?.label : 'Desk Layouts'}</span>
-              </button>
-              {showDeskLayoutPicker && (
-                <div style={{
-                  position: 'absolute', top: '100%', left: 0, zIndex: 100,
-                  background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-                  borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 4,
-                  minWidth: 200,
-                }}>
-                  <div style={{ padding: '4px 8px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Rows</div>
-                  {DESK_LAYOUTS.filter(l => l.rows === 1).map(l => (
-                    <button
-                      key={l.id}
-                      onClick={() => { setPlacingDeskLayout(l.id); setShowDeskLayoutPicker(false); setPlacingFurniture(null); setPlacingAmenity(null); setActiveTool('select'); }}
-                      style={{
-                        display: 'block', width: '100%', padding: '6px 10px', border: 'none', borderRadius: 4,
-                        background: placingDeskLayout === l.id ? '#eff6ff' : 'transparent',
-                        cursor: 'pointer', fontSize: '0.75rem', fontWeight: 500, textAlign: 'left',
-                        color: 'var(--color-text)',
-                      }}
-                    >
-                      <span style={{ display: 'inline-flex', gap: 1, marginRight: 8, verticalAlign: 'middle' }}>
-                        {Array.from({ length: l.cols }).map((_, i) => (
-                          <span key={i} style={{ width: 8, height: 6, background: '#2563eb', borderRadius: 1, display: 'inline-block' }} />
-                        ))}
-                      </span>
-                      {l.label}
-                    </button>
-                  ))}
-                  <div style={{ padding: '4px 8px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderTop: '1px solid var(--color-border)', marginTop: 2 }}>Face to Face</div>
-                  {DESK_LAYOUTS.filter(l => l.rows >= 2).map(l => (
-                    <button
-                      key={l.id}
-                      onClick={() => { setPlacingDeskLayout(l.id); setShowDeskLayoutPicker(false); setPlacingFurniture(null); setPlacingAmenity(null); setActiveTool('select'); }}
-                      style={{
-                        display: 'block', width: '100%', padding: '6px 10px', border: 'none', borderRadius: 4,
-                        background: placingDeskLayout === l.id ? '#eff6ff' : 'transparent',
-                        cursor: 'pointer', fontSize: '0.75rem', fontWeight: 500, textAlign: 'left',
-                        color: 'var(--color-text)',
-                      }}
-                    >
-                      <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 1, marginRight: 8, verticalAlign: 'middle' }}>
-                        <span style={{ display: 'flex', gap: 1 }}>
-                          {Array.from({ length: l.cols }).map((_, i) => (
-                            <span key={i} style={{ width: 8, height: 6, background: '#2563eb', borderRadius: 1 }} />
-                          ))}
+              {/* Amenity picker */}
+              <div style={{ position: 'relative' }} data-dropdown>
+                <button
+                  className={`dc-tool-btn ${placingAmenity ? 'dc-tool-btn--active' : ''}`}
+                  onClick={() => { setShowAmenityPicker(!showAmenityPicker); setShowFurniturePicker(false); }}
+                  title="Place amenity icon"
+                  style={placingAmenity
+                    ? { background: '#fde8e8', color: '#dc2626', borderColor: '#dc2626' }
+                    : {}}
+                >
+                  <span className="dc-tool-label">{placingAmenity ? AMENITY_ICONS.find(a => a.id === placingAmenity)?.label : 'Amenities'}</span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                {showAmenityPicker && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, zIndex: 100,
+                    background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+                    borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 4,
+                    display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, minWidth: 200,
+                  }}>
+                    {AMENITY_ICONS.map(a => (
+                      <button
+                        key={a.id}
+                        onClick={() => { setPlacingAmenity(a.id); setShowAmenityPicker(false); setActiveTool('select'); setDrawingOutline(false); setOutlinePoints([]); setRectDraw(null); }}
+                        style={{
+                          padding: '6px 8px', border: 'none', borderRadius: 4,
+                          background: placingAmenity === a.id ? '#fde8e8' : 'transparent',
+                          cursor: 'pointer', fontSize: '0.72rem', fontWeight: 500,
+                          textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
+                        }}
+                      >
+                        <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#fde8e8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="#dc2626" stroke="#dc2626" strokeWidth="0" dangerouslySetInnerHTML={{ __html: a.svg }} />
                         </span>
-                        <span style={{ display: 'flex', gap: 1 }}>
-                          {Array.from({ length: l.cols }).map((_, i) => (
-                            <span key={i} style={{ width: 8, height: 6, background: '#93c5fd', borderRadius: 1 }} />
-                          ))}
+                        {a.label}
+                      </button>
+                    ))}
+                    {placingAmenity && (
+                      <button
+                        onClick={() => { setPlacingAmenity(null); setShowAmenityPicker(false); }}
+                        style={{ gridColumn: '1 / -1', padding: '6px 8px', border: '1px solid var(--color-border)', borderRadius: 4, background: 'var(--color-bg)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600, marginTop: 2 }}
+                      >
+                        Stop Placing
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              {/* Furniture/Assets picker */}
+              <div style={{ position: 'relative' }} data-dropdown>
+                <button
+                  className={`dc-tool-btn ${placingFurniture ? 'dc-tool-btn--active' : ''}`}
+                  onClick={() => { setShowFurniturePicker(!showFurniturePicker); setShowAmenityPicker(false); }}
+                  title="Place furniture & assets"
+                  style={placingFurniture
+                    ? { background: '#f0fdf4', color: '#16a34a', borderColor: '#16a34a' }
+                    : {}}
+                >
+                  <span className="dc-tool-label">{placingFurniture ? FURNITURE_ASSETS.find(a => a.id === placingFurniture)?.label : 'Furniture'}</span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                {showFurniturePicker && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, zIndex: 100,
+                    background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+                    borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 4,
+                    display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, minWidth: 240,
+                    maxHeight: 350, overflowY: 'auto',
+                  }}>
+                    <div style={{ gridColumn: '1/-1', padding: '4px 8px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Furniture</div>
+                    {FURNITURE_ASSETS.slice(0, 8).map(a => (
+                      <button
+                        key={a.id}
+                        onClick={() => { setPlacingFurniture(a.id); setShowFurniturePicker(false); setPlacingAmenity(null); setActiveTool('select'); setDrawingOutline(false); }}
+                        style={{
+                          padding: '5px 8px', border: 'none', borderRadius: 4,
+                          background: placingFurniture === a.id ? '#f0fdf4' : 'transparent',
+                          cursor: 'pointer', fontSize: '0.7rem', fontWeight: 500,
+                          textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
+                        }}
+                      >
+                        <span style={{ width: 22, height: 22, borderRadius: 4, background: a.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="0" dangerouslySetInnerHTML={{ __html: a.svg }} />
                         </span>
-                      </span>
-                      {l.label}
-                    </button>
-                  ))}
-                  {placingDeskLayout && (
-                    <button
-                      onClick={() => { setPlacingDeskLayout(null); setShowDeskLayoutPicker(false); }}
-                      style={{
-                        display: 'block', width: '100%', padding: '6px 10px', border: 'none', borderRadius: 4,
-                        background: '#fef2f2', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600,
-                        color: '#dc2626', textAlign: 'center', marginTop: 4,
-                      }}
-                    >
-                      Stop Placing
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-            <button
-              className={`dc-tool-btn ${drawingOutline ? 'dc-tool-btn--active' : ''}`}
-              onClick={startOutlineDrawing}
-              title="Draw floor outline (click points, click green dot to close)"
-              style={drawingOutline ? { background: '#ede9fe', color: '#7c3aed', borderColor: '#7c3aed' } : undefined}
-            >
-              <span className="dc-tool-label">{drawingOutline ? `Drawing... (${outlinePoints.length} pts)` : 'Draw Outline'}</span>
-            </button>
-            {/* Amenity picker */}
-            <div style={{ position: 'relative' }} data-dropdown>
-              <button
-                className={`dc-tool-btn ${placingAmenity ? 'dc-tool-btn--active' : ''}`}
-                onClick={() => { setShowAmenityPicker(!showAmenityPicker); setShowFurniturePicker(false); }}
-                title="Place amenity icon"
-                style={placingAmenity ? { background: '#fde8e8', color: '#dc2626', borderColor: '#dc2626' } : undefined}
-              >
-                <span className="dc-tool-label">{placingAmenity ? AMENITY_ICONS.find(a => a.id === placingAmenity)?.label : 'Amenities'}</span>
-              </button>
-              {showAmenityPicker && (
-                <div style={{
-                  position: 'absolute', top: '100%', left: 0, zIndex: 100,
-                  background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-                  borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 4,
-                  display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, minWidth: 200,
-                }}>
-                  {AMENITY_ICONS.map(a => (
-                    <button
-                      key={a.id}
-                      onClick={() => { setPlacingAmenity(a.id); setShowAmenityPicker(false); setActiveTool('select'); setDrawingOutline(false); setOutlinePoints([]); setRectDraw(null); }}
-                      style={{
-                        padding: '6px 8px', border: 'none', borderRadius: 4,
-                        background: placingAmenity === a.id ? '#fde8e8' : 'transparent',
-                        cursor: 'pointer', fontSize: '0.72rem', fontWeight: 500,
-                        textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
-                      }}
-                    >
-                      <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#fde8e8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="#dc2626" stroke="#dc2626" strokeWidth="0" dangerouslySetInnerHTML={{ __html: a.svg }} />
-                      </span>
-                      {a.label}
-                    </button>
-                  ))}
-                  {placingAmenity && (
-                    <button
-                      onClick={() => { setPlacingAmenity(null); setShowAmenityPicker(false); }}
-                      style={{ gridColumn: '1 / -1', padding: '6px 8px', border: '1px solid var(--color-border)', borderRadius: 4, background: 'var(--color-bg)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600, marginTop: 2 }}
-                    >
-                      Stop Placing
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-            {/* Furniture/Assets picker */}
-            <div style={{ position: 'relative' }} data-dropdown>
-              <button
-                className={`dc-tool-btn ${placingFurniture ? 'dc-tool-btn--active' : ''}`}
-                onClick={() => { setShowFurniturePicker(!showFurniturePicker); setShowAmenityPicker(false); }}
-                title="Place furniture & assets"
-                style={placingFurniture ? { background: '#f0fdf4', color: '#16a34a', borderColor: '#16a34a' } : undefined}
-              >
-                <span className="dc-tool-label">{placingFurniture ? FURNITURE_ASSETS.find(a => a.id === placingFurniture)?.label : 'Assets'}</span>
-              </button>
-              {showFurniturePicker && (
-                <div style={{
-                  position: 'absolute', top: '100%', left: 0, zIndex: 100,
-                  background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-                  borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 4,
-                  display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, minWidth: 240,
-                  maxHeight: 350, overflowY: 'auto',
-                }}>
-                  <div style={{ gridColumn: '1/-1', padding: '4px 8px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Furniture</div>
-                  {FURNITURE_ASSETS.slice(0, 8).map(a => (
-                    <button
-                      key={a.id}
-                      onClick={() => { setPlacingFurniture(a.id); setShowFurniturePicker(false); setPlacingAmenity(null); setActiveTool('select'); setDrawingOutline(false); }}
-                      style={{
-                        padding: '5px 8px', border: 'none', borderRadius: 4,
-                        background: placingFurniture === a.id ? '#f0fdf4' : 'transparent',
-                        cursor: 'pointer', fontSize: '0.7rem', fontWeight: 500,
-                        textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
-                      }}
-                    >
-                      <span style={{ width: 22, height: 22, borderRadius: 4, background: a.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="0" dangerouslySetInnerHTML={{ __html: a.svg }} />
-                      </span>
-                      {a.label}
-                    </button>
-                  ))}
-                  <div style={{ gridColumn: '1/-1', padding: '4px 8px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderTop: '1px solid var(--color-border)', marginTop: 2 }}>Seating</div>
-                  {FURNITURE_ASSETS.slice(8, 12).map(a => (
-                    <button
-                      key={a.id}
-                      onClick={() => { setPlacingFurniture(a.id); setShowFurniturePicker(false); setPlacingAmenity(null); setActiveTool('select'); setDrawingOutline(false); }}
-                      style={{
-                        padding: '5px 8px', border: 'none', borderRadius: 4,
-                        background: placingFurniture === a.id ? '#f0fdf4' : 'transparent',
-                        cursor: 'pointer', fontSize: '0.7rem', fontWeight: 500,
-                        textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
-                      }}
-                    >
-                      <span style={{ width: 22, height: 22, borderRadius: 4, background: a.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="0" dangerouslySetInnerHTML={{ __html: a.svg }} />
-                      </span>
-                      {a.label}
-                    </button>
-                  ))}
-                  <div style={{ gridColumn: '1/-1', padding: '4px 8px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderTop: '1px solid var(--color-border)', marginTop: 2 }}>Utilities & Decor</div>
-                  {FURNITURE_ASSETS.slice(12).map(a => (
-                    <button
-                      key={a.id}
-                      onClick={() => { setPlacingFurniture(a.id); setShowFurniturePicker(false); setPlacingAmenity(null); setActiveTool('select'); setDrawingOutline(false); }}
-                      style={{
-                        padding: '5px 8px', border: 'none', borderRadius: 4,
-                        background: placingFurniture === a.id ? '#f0fdf4' : 'transparent',
-                        cursor: 'pointer', fontSize: '0.7rem', fontWeight: 500,
-                        textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
-                      }}
-                    >
-                      <span style={{ width: 22, height: 22, borderRadius: 4, background: a.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="0" dangerouslySetInnerHTML={{ __html: a.svg }} />
-                      </span>
-                      {a.label}
-                    </button>
-                  ))}
-                  {placingFurniture && (
-                    <button
-                      onClick={() => { setPlacingFurniture(null); setShowFurniturePicker(false); }}
-                      style={{ gridColumn: '1 / -1', padding: '6px 8px', border: '1px solid var(--color-border)', borderRadius: 4, background: 'var(--color-bg)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600, marginTop: 2 }}
-                    >
-                      Stop Placing
-                    </button>
-                  )}
-                </div>
-              )}
+                        {a.label}
+                      </button>
+                    ))}
+                    <div style={{ gridColumn: '1/-1', padding: '4px 8px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderTop: '1px solid var(--color-border)', marginTop: 2 }}>Seating</div>
+                    {FURNITURE_ASSETS.slice(8, 12).map(a => (
+                      <button
+                        key={a.id}
+                        onClick={() => { setPlacingFurniture(a.id); setShowFurniturePicker(false); setPlacingAmenity(null); setActiveTool('select'); setDrawingOutline(false); }}
+                        style={{
+                          padding: '5px 8px', border: 'none', borderRadius: 4,
+                          background: placingFurniture === a.id ? '#f0fdf4' : 'transparent',
+                          cursor: 'pointer', fontSize: '0.7rem', fontWeight: 500,
+                          textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
+                        }}
+                      >
+                        <span style={{ width: 22, height: 22, borderRadius: 4, background: a.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="0" dangerouslySetInnerHTML={{ __html: a.svg }} />
+                        </span>
+                        {a.label}
+                      </button>
+                    ))}
+                    <div style={{ gridColumn: '1/-1', padding: '4px 8px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderTop: '1px solid var(--color-border)', marginTop: 2 }}>Utilities & Decor</div>
+                    {FURNITURE_ASSETS.slice(12).map(a => (
+                      <button
+                        key={a.id}
+                        onClick={() => { setPlacingFurniture(a.id); setShowFurniturePicker(false); setPlacingAmenity(null); setActiveTool('select'); setDrawingOutline(false); }}
+                        style={{
+                          padding: '5px 8px', border: 'none', borderRadius: 4,
+                          background: placingFurniture === a.id ? '#f0fdf4' : 'transparent',
+                          cursor: 'pointer', fontSize: '0.7rem', fontWeight: 500,
+                          textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
+                        }}
+                      >
+                        <span style={{ width: 22, height: 22, borderRadius: 4, background: a.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="0" dangerouslySetInnerHTML={{ __html: a.svg }} />
+                        </span>
+                        {a.label}
+                      </button>
+                    ))}
+                    {placingFurniture && (
+                      <button
+                        onClick={() => { setPlacingFurniture(null); setShowFurniturePicker(false); }}
+                        style={{ gridColumn: '1 / -1', padding: '6px 8px', border: '1px solid var(--color-border)', borderRadius: 4, background: 'var(--color-bg)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600, marginTop: 2 }}
+                      >
+                        Stop Placing
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             <span className="dc-toolbar-sep" />
           </>
@@ -2483,16 +2532,22 @@ export default function EditorPage() {
               style={{ pointerEvents: 'none' }}
             />
 
-            {/* Background image */}
-            {floorplan.source_image_path && (
-              <image
-                href={`/api/floorplans/${floorplan.id}/source-preview`}
-                x={0} y={0}
-                width={canvasW} height={canvasH}
-                opacity={floorplan.background_opacity ?? 1}
-                style={{ pointerEvents: 'none' }}
-              />
-            )}
+            {/* Guide layer — the uploaded floor plan image */}
+            {floorplan.source_image_path && (() => {
+              const guideLayer = layers.find(l => l.id === 'guide');
+              const guideVisible = guideLayer?.visible ?? true;
+              const guideOpacity = guideLayer?.opacity ?? 0.5;
+              if (!guideVisible) return null;
+              return (
+                <image
+                  href={`/api/floorplans/${floorplan.id}/source-preview`}
+                  x={0} y={0}
+                  width={canvasW} height={canvasH}
+                  opacity={guideOpacity}
+                  style={{ pointerEvents: 'none' }}
+                />
+              );
+            })()}
 
             {/* Grid on top of image (re-render so it's visible over the image) */}
             {editorState.gridEnabled && (
