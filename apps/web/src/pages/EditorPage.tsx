@@ -877,6 +877,51 @@ export default function EditorPage() {
         wx = Math.round(wx / gs) * gs;
         wy = Math.round(wy / gs) * gs;
       }
+      // Snap to existing wall endpoints and room corners
+      const snapThreshold = 10;
+      let snapped = false;
+      // Check wall endpoints
+      for (const obj of objects) {
+        if (obj.object_type === 'decorative' && obj.layer === 'walls' && obj.geometry.type === 'polygon' && obj.geometry.points) {
+          for (const pt of obj.geometry.points) {
+            if (Math.abs(pt.x - wx) < snapThreshold && Math.abs(pt.y - wy) < snapThreshold) {
+              wx = pt.x; wy = pt.y; snapped = true; break;
+            }
+          }
+          if (snapped) break;
+        }
+      }
+      // Check room corners
+      if (!snapped) {
+        for (const obj of objects) {
+          if ((obj.object_type === 'room' || obj.object_type === 'area') && obj.geometry.type === 'rect') {
+            const g = obj.geometry;
+            const rx = g.x ?? 0, ry = g.y ?? 0, rw = g.width ?? 0, rh = g.height ?? 0;
+            const corners = [
+              { x: rx, y: ry }, { x: rx + rw, y: ry },
+              { x: rx + rw, y: ry + rh }, { x: rx, y: ry + rh },
+            ];
+            for (const c of corners) {
+              if (Math.abs(c.x - wx) < snapThreshold && Math.abs(c.y - wy) < snapThreshold) {
+                wx = c.x; wy = c.y; snapped = true; break;
+              }
+            }
+            // Also snap to room edges (midpoints)
+            if (!snapped) {
+              const midpoints = [
+                { x: rx + rw / 2, y: ry }, { x: rx + rw, y: ry + rh / 2 },
+                { x: rx + rw / 2, y: ry + rh }, { x: rx, y: ry + rh / 2 },
+              ];
+              for (const m of midpoints) {
+                if (Math.abs(m.x - wx) < snapThreshold && Math.abs(m.y - wy) < snapThreshold) {
+                  wx = m.x; wy = m.y; snapped = true; break;
+                }
+              }
+            }
+            if (snapped) break;
+          }
+        }
+      }
       if (!wallStartRef.current) {
         // First click — set start point
         setWallStart({ x: wx, y: wy });
@@ -1229,6 +1274,24 @@ export default function EditorPage() {
         const gs = editorState.gridSize;
         wx = Math.round(wx / gs) * gs;
         wy = Math.round(wy / gs) * gs;
+      }
+      // Snap preview to wall endpoints and room corners
+      const st = 10;
+      let didSnap = false;
+      for (const obj of objects) {
+        if (didSnap) break;
+        if (obj.object_type === 'decorative' && obj.layer === 'walls' && obj.geometry.type === 'polygon' && obj.geometry.points) {
+          for (const pt of obj.geometry.points) {
+            if (Math.abs(pt.x - wx) < st && Math.abs(pt.y - wy) < st) { wx = pt.x; wy = pt.y; didSnap = true; break; }
+          }
+        }
+        if (!didSnap && (obj.object_type === 'room' || obj.object_type === 'area') && obj.geometry.type === 'rect') {
+          const g = obj.geometry;
+          const rx = g.x ?? 0, ry = g.y ?? 0, rw = g.width ?? 0, rh = g.height ?? 0;
+          for (const c of [{x:rx,y:ry},{x:rx+rw,y:ry},{x:rx+rw,y:ry+rh},{x:rx,y:ry+rh},{x:rx+rw/2,y:ry},{x:rx+rw,y:ry+rh/2},{x:rx+rw/2,y:ry+rh},{x:rx,y:ry+rh/2}]) {
+            if (Math.abs(c.x - wx) < st && Math.abs(c.y - wy) < st) { wx = c.x; wy = c.y; didSnap = true; break; }
+          }
+        }
       }
       setWallPreview({ x: wx, y: wy });
     }
@@ -2744,16 +2807,24 @@ export default function EditorPage() {
                 <circle cx={wallStart.x} cy={wallStart.y} r={4} fill="#374151" />
                 {/* End dot */}
                 <circle cx={wallPreview.x} cy={wallPreview.y} r={4} fill="#374151" stroke="#fff" strokeWidth={1} />
-                {/* Length label */}
-                <text
-                  x={(wallStart.x + wallPreview.x) / 2}
-                  y={(wallStart.y + wallPreview.y) / 2 - 10}
-                  textAnchor="middle" fontSize={10} fill="#374151"
-                  fontFamily="Arial" fontWeight="600"
-                  style={{ pointerEvents: 'none', userSelect: 'none' }}
-                >
-                  {Math.round(Math.sqrt((wallPreview.x - wallStart.x) ** 2 + (wallPreview.y - wallStart.y) ** 2))}px
-                </text>
+                {/* Length and angle label */}
+                {(() => {
+                  const dx = wallPreview.x - wallStart.x;
+                  const dy = wallPreview.y - wallStart.y;
+                  const len = Math.round(Math.sqrt(dx * dx + dy * dy));
+                  const angle = Math.round(Math.atan2(-dy, dx) * 180 / Math.PI);
+                  const mx = (wallStart.x + wallPreview.x) / 2;
+                  const my = (wallStart.y + wallPreview.y) / 2 - 12;
+                  return (
+                    <g>
+                      <rect x={mx - 35} y={my - 9} width={70} height={18} rx={4} fill="rgba(55,65,81,0.9)" />
+                      <text x={mx} y={my + 1} textAnchor="middle" dominantBaseline="central" fontSize={9} fill="#fff"
+                        fontFamily="Arial" fontWeight="600" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                        {len}px &middot; {angle}&deg;
+                      </text>
+                    </g>
+                  );
+                })()}
               </g>
             )}
             {/* Wall start marker when tool active but no preview yet */}
