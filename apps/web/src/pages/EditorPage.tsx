@@ -1700,21 +1700,21 @@ export default function EditorPage() {
       {/* PlaceOS Navigation Bar */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 16px', height: 44,
-        background: 'linear-gradient(135deg, #006A9D 0%, #005580 100%)',
-        borderBottom: '1px solid #004a6e',
+        padding: '0 20px', height: 52,
+        background: 'linear-gradient(135deg, #002147 0%, #001a3a 100%)',
+        borderBottom: '1px solid #001530',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             onClick={() => navigate(`/project/${floorplan.project_id}`)}
-            style={{ border: 'none', background: 'rgba(255,255,255,0.15)', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#fff', fontSize: '0.82rem', fontWeight: 500 }}
+            style={{ border: 'none', background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontSize: '0.9rem', fontWeight: 600 }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
             Back
           </button>
-          <span style={{ color: '#fff', fontSize: '0.95rem', fontWeight: 700, letterSpacing: '-0.3px' }}>PlaceOS</span>
-          <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.82rem' }}>/ Floor Plan Studio</span>
-          <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.82rem' }}>/ {floorplan.floor_name}</span>
+          <span style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px' }}>PlaceOS</span>
+          <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem', fontWeight: 500 }}>/ Floor Plan Studio</span>
+          <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.9rem' }}>/ {floorplan.floor_name}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {([
@@ -1724,10 +1724,10 @@ export default function EditorPage() {
             <button
               key={mode}
               style={{
-                padding: '6px 16px', border: 'none', borderRadius: 6, cursor: 'pointer',
-                fontSize: '0.82rem', fontWeight: 600,
+                padding: '8px 20px', border: 'none', borderRadius: 8, cursor: 'pointer',
+                fontSize: '0.9rem', fontWeight: 700,
                 background: editorMode === mode ? '#fff' : 'rgba(255,255,255,0.12)',
-                color: editorMode === mode ? '#006A9D' : 'rgba(255,255,255,0.85)',
+                color: editorMode === mode ? '#002147' : 'rgba(255,255,255,0.85)',
                 transition: 'all 150ms ease',
               }}
               onClick={() => {
@@ -2367,7 +2367,7 @@ export default function EditorPage() {
               ? '1fr 240px'
               : editorMode === 'label'
                 ? '1fr'
-                : '180px 1fr 220px',
+                : '180px 1fr 300px',
           gridTemplateRows: editorMode === 'label' ? '1fr auto' : '1fr',
           overflow: 'hidden',
         }}
@@ -2521,11 +2521,11 @@ export default function EditorPage() {
               </defs>
             )}
 
-            {/* White canvas background */}
+            {/* Canvas background with floorplan color */}
             <rect
               x={0} y={0}
               width={canvasW} height={canvasH}
-              fill="white"
+              fill={(floorplan as any).background_color || '#ffffff'}
               stroke="var(--color-border)"
               strokeWidth="1"
               strokeDasharray="4 4"
@@ -3009,6 +3009,13 @@ export default function EditorPage() {
                   object={selectedObject}
                   onChange={handleObjectChange}
                   onDelete={handleObjectDelete}
+                  backgroundColor={(floorplan as any).background_color || '#ffffff'}
+                  onBackgroundColorChange={async (color) => {
+                    try {
+                      const updated = await updateFloorplan(floorplanId!, { background_color: color });
+                      setFloorplan(updated);
+                    } catch { /* ignore */ }
+                  }}
                 />
               )}
               {rightSidebarTab === 'label' && (

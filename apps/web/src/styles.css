@@ -1163,8 +1163,6 @@ select.form-input {
 
 .lbl-panel {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -1172,22 +1170,22 @@ select.form-input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--color-border);
 }
 
 .lbl-header h3 {
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   font-weight: 700;
   margin: 0;
 }
 
 .lbl-count {
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--color-primary);
   background: var(--color-primary-light);
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 10px;
 }
 
@@ -1211,22 +1209,22 @@ select.form-input {
 }
 
 .lbl-section {
-  padding: 12px 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--color-border);
 }
 
 .lbl-section-title {
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .lbl-row {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
 }
 

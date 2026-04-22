@@ -167,7 +167,6 @@ export default function LabellingPanel({
         {([
           { id: 'assign' as const, label: 'Assign IDs' },
           { id: 'bulk' as const, label: 'Bulk Edit' },
-          { id: 'export' as const, label: 'Import/Export' },
         ]).map(tab => (
           <button
             key={tab.id}
@@ -374,41 +373,6 @@ export default function LabellingPanel({
         </div>
       )}
 
-      {/* ── Import/Export Tab ── */}
-      {activeTab === 'export' && (
-        <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div className="lbl-section">
-            <div className="lbl-section-title">Export All IDs</div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', margin: '0 0 6px' }}>
-              Export all room/desk/zone IDs with positions as CSV
-            </p>
-            <button className="btn btn-primary btn-sm" style={{ width: '100%' }} onClick={handleExportAssignments}>
-              Export IDs as CSV
-            </button>
-          </div>
-
-          <div className="lbl-section">
-            <div className="lbl-section-title">Full Object Export</div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', margin: '0 0 6px' }}>
-              Export all objects with full metadata
-            </p>
-            <button className="btn btn-secondary btn-sm" style={{ width: '100%' }} onClick={onExportCsv}>
-              Export Full CSV
-            </button>
-          </div>
-
-          <div className="lbl-section">
-            <div className="lbl-section-title">Import Objects</div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', margin: '0 0 6px' }}>
-              Import objects from a CSV file (updates existing, creates new)
-            </p>
-            <button className="btn btn-secondary btn-sm" style={{ width: '100%' }} onClick={() => fileInputRef.current?.click()}>
-              Import CSV
-            </button>
-            <input ref={fileInputRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleLegacyImport} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

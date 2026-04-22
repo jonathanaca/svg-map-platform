@@ -5,6 +5,8 @@ interface Props {
   object: MapObject | null;
   onChange: (id: string, updates: Partial<MapObject>) => void;
   onDelete: (id: string) => void;
+  backgroundColor?: string;
+  onBackgroundColorChange?: (color: string) => void;
 }
 
 const OBJECT_TYPES: MapObjectType[] = [
@@ -20,7 +22,7 @@ function generateSvgId(type: MapObjectType, label: string | null): string {
   return `${type}-${base}`;
 }
 
-export default function PropertiesPanel({ object, onChange, onDelete }: Props) {
+export default function PropertiesPanel({ object, onChange, onDelete, backgroundColor, onBackgroundColorChange }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const handleChange = useCallback(
@@ -78,6 +80,29 @@ export default function PropertiesPanel({ object, onChange, onDelete }: Props) {
           </svg>
           <p>Select an object on the canvas to view its properties.</p>
         </div>
+        {/* Background color - always visible */}
+        {onBackgroundColorChange && (
+          <div style={{ padding: '12px 14px', borderTop: '1px solid var(--color-border)' }}>
+            <div className="pp-field">
+              <label style={{ fontSize: '0.82rem' }}>BACKGROUND COLOR</label>
+              <div className="pp-color-row">
+                <input
+                  type="color"
+                  className="pp-color-input"
+                  value={backgroundColor || '#ffffff'}
+                  onChange={(e) => onBackgroundColorChange(e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="form-input"
+                  value={backgroundColor || '#ffffff'}
+                  onChange={(e) => onBackgroundColorChange(e.target.value)}
+                  style={{ flex: 1, fontSize: '0.82rem' }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -345,6 +370,31 @@ export default function PropertiesPanel({ object, onChange, onDelete }: Props) {
             {confirmDelete ? 'Click again to confirm' : 'Delete Object (Del)'}
           </button>
         </div>
+
+        {/* Background color */}
+        {onBackgroundColorChange && (
+          <>
+            <div className="pp-separator" />
+            <div className="pp-field">
+              <label style={{ fontSize: '0.82rem' }}>BACKGROUND COLOR</label>
+              <div className="pp-color-row">
+                <input
+                  type="color"
+                  className="pp-color-input"
+                  value={backgroundColor || '#ffffff'}
+                  onChange={(e) => onBackgroundColorChange(e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="form-input"
+                  value={backgroundColor || '#ffffff'}
+                  onChange={(e) => onBackgroundColorChange(e.target.value)}
+                  style={{ flex: 1, fontSize: '0.82rem' }}
+                />
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
