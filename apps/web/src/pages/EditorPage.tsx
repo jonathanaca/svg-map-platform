@@ -260,19 +260,7 @@ export default function EditorPage() {
 
   // Object state (loaded from API)
   const [objects, setObjects] = useState<MapObject[]>([]);
-  const [selectedObjectId, setSelectedObjectId_] = useState<string | null>(null);
-  const [selectedObjectIds, setSelectedObjectIds_] = useState<Set<string>>(new Set());
-  const selectedObjectIdsRef = useRef<Set<string>>(new Set());
-  const setSelectedObjectIds = useCallback((ids: Set<string>) => {
-    selectedObjectIdsRef.current = ids;
-    setSelectedObjectIds_(ids);
-  }, []);
-
-  // Wrapper: keep single selection in sync with multi-selection
-  const setSelectedObjectId = useCallback((id: string | null) => {
-    setSelectedObjectId_(id);
-    setSelectedObjectIds(id ? new Set([id]) : new Set());
-  }, [setSelectedObjectIds]);
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
 
   // Undo/Redo history
   const undoStack = useRef<MapObject[][]>([]);
@@ -1137,22 +1125,8 @@ export default function EditorPage() {
         bestHits.sort((a, b) => a.area - b.area);
         const hitId = bestHits[0].id;
         const hitObj = objects.find((o) => o.id === hitId)!;
-
-        if (e.shiftKey) {
-          // Shift+click: toggle in multi-selection
-          const next = new Set(selectedObjectIdsRef.current);
-          if (next.has(hitId)) { next.delete(hitId); } else { next.add(hitId); }
-          setSelectedObjectId_(next.size > 0 ? hitId : null);
-          setSelectedObjectIds(next);
-        } else if (selectedObjectIdsRef.current.has(hitId) && selectedObjectIdsRef.current.size > 1) {
-          // Clicked an already-selected object in multi-select — keep selection, just set primary
-          setSelectedObjectId_(hitId);
-        } else {
-          // Normal click: single select (even if in a group)
-          setSelectedObjectId(hitId);
-        }
-
-        // Allow dragging if not locked — moves all selected objects
+        setSelectedObjectId(hitId);
+        // Only allow dragging if the object's layer is not locked and object is not locked
         if (!hitObj.locked) {
           setDragging({ objectId: hitId, offsetX: x - (hitObj.geometry.x ?? 0), offsetY: y - (hitObj.geometry.y ?? 0) });
         }
@@ -1161,7 +1135,6 @@ export default function EditorPage() {
       }
       // Click empty space — deselect
       setSelectedObjectId(null);
-      setSelectedObjectIds(new Set());
       return;
     }
 
@@ -1235,15 +1208,8 @@ export default function EditorPage() {
       const w = obj.geometry.width ?? 0;
       const h = obj.geometry.height ?? 0;
 
-      // Compute delta from primary dragged object
-      const dx = rawX - (obj.geometry.x ?? 0);
-      const dy = rawY - (obj.geometry.y ?? 0);
-
-      const currentIds = selectedObjectIdsRef.current;
-      const idsToMove = currentIds.size > 1 ? currentIds : new Set([dragging.objectId]);
-
       const otherRects = objects
-        .filter((o) => !idsToMove.has(o.id) && o.visible)
+        .filter((o) => o.id !== dragging.objectId && o.visible)
         .map((o) => ({
           x: o.geometry.x ?? 0,
           y: o.geometry.y ?? 0,
@@ -1257,19 +1223,12 @@ export default function EditorPage() {
       );
       setSnapGuides(guides);
 
-      const snapDx = snappedX - (obj.geometry.x ?? 0);
-      const snapDy = snappedY - (obj.geometry.y ?? 0);
-
       setObjects((prev) =>
-        prev.map((o) => {
-          if (o.id === dragging.objectId) {
-            return { ...o, geometry: { ...o.geometry, x: snappedX, y: snappedY } };
-          }
-          if (idsToMove.has(o.id)) {
-            return { ...o, geometry: { ...o.geometry, x: (o.geometry.x ?? 0) + snapDx, y: (o.geometry.y ?? 0) + snapDy } };
-          }
-          return o;
-        }),
+        prev.map((o) =>
+          o.id === dragging.objectId
+            ? { ...o, geometry: { ...o.geometry, x: snappedX, y: snappedY } }
+            : o,
+        ),
       );
     } else if (resizing) {
       const { handle, origX, origY, origW, origH } = resizing;
@@ -1340,21 +1299,18 @@ export default function EditorPage() {
 
     // Update cursor coordinates for status bar
     setCursorCoords({ x: Math.round(x), y: Math.round(y) });
-  }, [dragging, resizing, drawing, rectDraw, objects, activeTool, wallStart, editorState.snapEnabled, editorState.gridSize, panning, rotating, handleObjectChange, marquee, selectedObjectIds]);
+  }, [dragging, resizing, drawing, rectDraw, objects, activeTool, wallStart, editorState.snapEnabled, editorState.gridSize, panning, rotating, handleObjectChange]);
 
   const handleMouseUp = useCallback(() => {
     if (panning) { setPanning(false); panStartRef.current = null; return; }
     if (rotating) { setRotating(null); return; }
     if (dragging) {
-      // Persist the move for all selected objects
-      const idsToSave = selectedObjectIdsRef.current.size > 1 ? selectedObjectIdsRef.current : new Set([dragging.objectId]);
-      for (const id of idsToSave) {
-        const obj = objects.find((o) => o.id === id);
-        if (obj) {
-          updateObject(id, { geometry: obj.geometry }).catch(() => {});
-        }
+      // Persist the move
+      const obj = objects.find((o) => o.id === dragging.objectId);
+      if (obj) {
+        updateObject(dragging.objectId, { geometry: obj.geometry }).catch(() => {});
+        setDirty(true);
       }
-      setDirty(true);
       setDragging(null);
       setSnapGuides([]);
     }
@@ -2895,26 +2851,6 @@ export default function EditorPage() {
                 style={{ pointerEvents: 'none' }}
               />
             )}
-            {/* Multi-selection highlight */}
-            {selectedObjectIds.size > 1 && visibleObjects.filter(o => selectedObjectIds.has(o.id)).map(obj => {
-              const g = obj.geometry;
-              if (g.type === 'rect') {
-                return (
-                  <rect
-                    key={`multi-${obj.id}`}
-                    data-ui-only="true"
-                    x={(g.x ?? 0) - 2} y={(g.y ?? 0) - 2}
-                    width={(g.width ?? 0) + 4} height={(g.height ?? 0) + 4}
-                    fill="none" stroke="#3b82f6" strokeWidth={1.5}
-                    strokeDasharray="4 2"
-                    rx={3}
-                    style={{ pointerEvents: 'none' }}
-                  />
-                );
-              }
-              return null;
-            })}
-
             {/* Wall drawing preview */}
             {wallStart && wallPreview && activeTool === 'wall' && (
               <g data-ui-only="true" style={{ pointerEvents: 'none' }}>
@@ -4278,48 +4214,6 @@ export default function EditorPage() {
             }}>
               <span>Duplicate</span><span className="context-menu-shortcut">{'\u2318'}D</span>
             </button>
-            {/* Group actions — only show if object has a group_id */}
-            {(() => {
-              const obj = objects.find(o => o.id === contextMenu.objectId);
-              if (!obj?.group_id) return null;
-              const groupMembers = objects.filter(o => o.group_id === obj.group_id);
-              const groupCount = groupMembers.length;
-              const groupIds = groupMembers.map(o => o.id);
-              return (
-                <>
-                  <button className="context-menu-item" onClick={() => {
-                    setSelectedObjectIds(new Set(groupIds));
-                    setSelectedObjectId_(contextMenu.objectId);
-                    showToast(`Selected group (${groupCount}) — drag to move`, 'info');
-                    setContextMenu(null);
-                  }}>
-                    <span>Select Group ({groupCount})</span>
-                  </button>
-                  <button className="context-menu-item context-menu-item--danger" onClick={() => {
-                    for (const id of groupIds) {
-                      handleObjectDelete(id);
-                    }
-                    showToast(`Deleted group (${groupCount} objects)`, 'info');
-                    setContextMenu(null);
-                  }}>
-                    <span>Delete Group ({groupCount})</span>
-                  </button>
-                </>
-              );
-            })()}
-            {/* Multi-select actions */}
-            {selectedObjectIds.size > 1 && (
-              <button className="context-menu-item context-menu-item--danger" onClick={() => {
-                for (const id of selectedObjectIds) {
-                  handleObjectDelete(id);
-                }
-                showToast(`Deleted ${selectedObjectIds.size} objects`, 'info');
-                setSelectedObjectIds(new Set());
-                setContextMenu(null);
-              }}>
-                <span>Delete Selected ({selectedObjectIds.size})</span>
-              </button>
-            )}
             <div className="context-menu-sep" />
             <button className="context-menu-item" onClick={() => {
               const obj = objects.find(o => o.id === contextMenu.objectId);
