@@ -332,7 +332,7 @@ export default function FloorPlanView2D({ floorplan, objects, availability, heat
         }}
       >
         {/* Background */}
-        <rect x={0} y={0} width={canvasW} height={canvasH} fill="#161b22" />
+        <rect x={0} y={0} width={canvasW} height={canvasH} fill={(floorplan as any).background_color || '#161b22'} />
 
         {/* Floor plan image */}
         {floorplan.source_image_path && (

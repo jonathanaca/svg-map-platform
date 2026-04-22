@@ -5,6 +5,7 @@ import {
   getFloorplan,
   getProject,
   saveCanvasState,
+  updateFloorplan,
   uploadSourceImage,
   listObjects,
   createObject,
@@ -2064,6 +2065,24 @@ export default function EditorPage() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
           </button>
           <button className="dc-tool-btn" onClick={() => { setZoom(1); if (containerRef.current) { containerRef.current.scrollLeft = 0; containerRef.current.scrollTop = 0; } }} title="Reset zoom to 100%">Fit</button>
+          <div className="dc-toolbar-sep" />
+          {/* Background color */}
+          <label className="dc-tool-btn" title="Floor plan background color" style={{ cursor: 'pointer', gap: 4 }}>
+            <input
+              type="color"
+              value={(floorplan as any).background_color || '#ffffff'}
+              onChange={async (e) => {
+                const color = e.target.value;
+                try {
+                  const updated = await updateFloorplan(floorplanId!, { background_color: color });
+                  setFloorplan(updated);
+                  showToast('Background color updated', 'success');
+                } catch { showToast('Failed to update color', 'error'); }
+              }}
+              style={{ width: 20, height: 20, border: 'none', padding: 0, cursor: 'pointer', borderRadius: 4 }}
+            />
+            <span className="dc-tool-label">BG</span>
+          </label>
         </div>
 
         {/* Alignment tools - visible when an object is selected */}
@@ -2935,7 +2954,7 @@ export default function EditorPage() {
                     if (obj.object_type === 'room') return '#374151';
                     if (obj.object_type === 'desk') return TYPE_COLORS.desk ?? '#22c55e';
                     if (obj.object_type === 'decorative' && obj.layer === 'walls') return '#1f2937';
-                    return obj.stroke_color || TYPE_COLORS[obj.object_type] ?? '#6b7280';
+                    return obj.stroke_color || (TYPE_COLORS[obj.object_type] ?? '#6b7280');
                   };
                   const getExportStrokeWidth = (obj: MapObject): string => {
                     if (obj.object_type === 'room') return '1.5';

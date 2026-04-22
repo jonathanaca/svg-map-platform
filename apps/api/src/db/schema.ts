@@ -63,6 +63,7 @@ function initSchema(db: Database.Database): void {
       source_image_path TEXT,
       source_type TEXT,
       background_opacity REAL DEFAULT 0.3,
+      background_color TEXT DEFAULT NULL,
       background_locked INTEGER DEFAULT 1,
       scale_px_per_meter REAL,
       canvas_width REAL,
@@ -76,6 +77,12 @@ function initSchema(db: Database.Database): void {
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     )
   `);
+
+  // Migrate: add background_color column if missing
+  const fpCols = db.prepare("PRAGMA table_info(floorplans)").all() as Array<{ name: string }>;
+  if (!fpCols.some(c => c.name === 'background_color')) {
+    db.exec('ALTER TABLE floorplans ADD COLUMN background_color TEXT DEFAULT NULL');
+  }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS floorplan_versions (

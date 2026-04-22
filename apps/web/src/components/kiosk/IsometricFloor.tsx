@@ -10,6 +10,7 @@ interface Props {
 export default function IsometricFloor({ floorplan, scale }: Props) {
   const w = (floorplan.canvas_width ?? 1000) * scale;
   const h = (floorplan.canvas_height ?? 800) * scale;
+  const bgColor = (floorplan as any).background_color || '#1a2030';
 
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
 
@@ -48,7 +49,7 @@ export default function IsometricFloor({ floorplan, scale }: Props) {
       {/* Floor base */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
         <planeGeometry args={[w + 0.3, h + 0.3]} />
-        <meshBasicMaterial color="#1a2030" side={THREE.DoubleSide} />
+        <meshBasicMaterial color={bgColor} side={THREE.DoubleSide} />
       </mesh>
       {/* Floor surface with texture */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow material={material}>

@@ -78,7 +78,7 @@ export default function IsometricScene({ floorplan, objects, availability }: Pro
           case 'locker':
             return (
               <RoomMesh
-                key={obj.id}
+                key={`${obj.id}-${obj.geometry.x}-${obj.geometry.y}-${obj.geometry.width}-${obj.geometry.height}`}
                 obj={obj}
                 canvasW={canvasW}
                 canvasH={canvasH}
@@ -89,7 +89,7 @@ export default function IsometricScene({ floorplan, objects, availability }: Pro
           case 'desk':
             return (
               <DeskMesh
-                key={obj.id}
+                key={`${obj.id}-${obj.geometry.x}-${obj.geometry.y}`}
                 obj={obj}
                 canvasW={canvasW}
                 canvasH={canvasH}
@@ -112,7 +112,7 @@ export default function IsometricScene({ floorplan, objects, availability }: Pro
             }
             return (
               <FurnitureMesh
-                key={obj.id}
+                key={`${obj.id}-${(obj.metadata as any)?.furnitureType || 'default'}-${obj.geometry.x}-${obj.geometry.y}`}
                 obj={obj}
                 canvasW={canvasW}
                 canvasH={canvasH}
@@ -122,7 +122,7 @@ export default function IsometricScene({ floorplan, objects, availability }: Pro
           case 'amenity':
             return (
               <AmenityPin
-                key={obj.id}
+                key={`${obj.id}-${(obj.metadata as any)?.icon || 'default'}-${obj.geometry.x}-${obj.geometry.y}`}
                 obj={obj}
                 canvasW={canvasW}
                 canvasH={canvasH}

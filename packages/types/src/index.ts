@@ -238,6 +238,7 @@ export interface Floorplan {
   source_image_path: string | null;
   source_type: string | null;
   background_opacity: number;
+  background_color: string | null;
   background_locked: boolean;
   scale_px_per_meter: number | null;
   canvas_width: number | null;

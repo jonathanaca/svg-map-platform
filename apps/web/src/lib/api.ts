@@ -153,6 +153,15 @@ export async function deleteFloorplan(id: string): Promise<void> {
   await handleResponse<{ success: boolean }>(response);
 }
 
+export async function updateFloorplan(floorplanId: string, updates: Record<string, unknown>): Promise<Floorplan> {
+  const response = await fetch(`${API_BASE}/floorplans/${floorplanId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  return handleResponse<Floorplan>(response);
+}
+
 export async function saveCanvasState(floorplanId: string, canvasState: unknown): Promise<void> {
   const response = await fetch(`${API_BASE}/floorplans/${floorplanId}/save`, {
     method: 'POST',
