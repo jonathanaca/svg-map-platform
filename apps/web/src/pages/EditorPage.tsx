@@ -306,14 +306,6 @@ export default function EditorPage() {
     setObjects(prev);
     setSelectedObjectId(null);
     setDirty(true);
-    // Preserve imported label IDs — only update assigned status
-    const currentIds = importedLabelIdsRef.current;
-    if (currentIds.length > 0) {
-      setImportedLabelIds(currentIds.map(item => {
-        const matchingObj = prev.find(o => o.svg_id === item.id);
-        return { ...item, assigned: !!matchingObj };
-      }));
-    }
     // Sync to API
     if (floorplanId) {
       bulkUpsertObjects(floorplanId, prev).catch(() => {});
@@ -328,14 +320,6 @@ export default function EditorPage() {
     setObjects(next);
     setSelectedObjectId(null);
     setDirty(true);
-    // Preserve imported label IDs — only update assigned status
-    const currentIds = importedLabelIdsRef.current;
-    if (currentIds.length > 0) {
-      setImportedLabelIds(currentIds.map(item => {
-        const matchingObj = next.find(o => o.svg_id === item.id);
-        return { ...item, assigned: !!matchingObj };
-      }));
-    }
     if (floorplanId) {
       bulkUpsertObjects(floorplanId, next).catch(() => {});
     }
@@ -384,15 +368,21 @@ export default function EditorPage() {
   const [bottomTab, setBottomTab] = useState<'labelling' | 'validation'>('labelling');
   const [leftSidebarTab, setLeftSidebarTab] = useState<'layers' | 'objects'>('layers');
   const [rightSidebarTab, setRightSidebarTab] = useState<'properties' | 'label'>('properties');
-  const [importedLabelIds, setImportedLabelIds_] = useState<{ id: string; label?: string; assigned?: boolean }[]>([]);
-  const importedLabelIdsRef = useRef<{ id: string; label?: string; assigned?: boolean }[]>([]);
+  // Store imported label IDs in sessionStorage so they survive undo/redo/re-renders
+  const LABEL_IDS_KEY = `label-ids-${floorplanId}`;
+  const [importedLabelIds, setImportedLabelIds_] = useState<{ id: string; label?: string; assigned?: boolean }[]>(() => {
+    try {
+      const stored = sessionStorage.getItem(LABEL_IDS_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+  });
   const setImportedLabelIds = useCallback((v: { id: string; label?: string; assigned?: boolean }[] | ((prev: { id: string; label?: string; assigned?: boolean }[]) => { id: string; label?: string; assigned?: boolean }[])) => {
     setImportedLabelIds_(prev => {
       const next = typeof v === 'function' ? v(prev) : v;
-      importedLabelIdsRef.current = next;
+      try { sessionStorage.setItem(LABEL_IDS_KEY, JSON.stringify(next)); } catch {}
       return next;
     });
-  }, []);
+  }, [LABEL_IDS_KEY]);
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
 
   // Editor search
