@@ -30,15 +30,24 @@ export default function LabellingPanel({
 }: Props) {
   // Store imported IDs in sessionStorage so they survive parent re-renders
   const [importedIds, setImportedIdsState] = useState<ImportedId[]>(() => {
-    try { const s = sessionStorage.getItem(LABEL_STORAGE_KEY); return s ? JSON.parse(s) : []; } catch { return []; }
+    try {
+      const s = sessionStorage.getItem(LABEL_STORAGE_KEY);
+      if (!s) return [];
+      const parsed = JSON.parse(s);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((item: any) => item && typeof item.id === 'string');
+    } catch {
+      sessionStorage.removeItem(LABEL_STORAGE_KEY);
+      return [];
+    }
   });
-  const setImportedIds = (ids: ImportedId[] | ((prev: ImportedId[]) => ImportedId[])) => {
+  const setImportedIds = useCallback((ids: ImportedId[] | ((prev: ImportedId[]) => ImportedId[])) => {
     setImportedIdsState(prev => {
       const newIds = typeof ids === 'function' ? ids(prev) : ids;
       try { sessionStorage.setItem(LABEL_STORAGE_KEY, JSON.stringify(newIds)); } catch {}
       return newIds;
     });
-  };
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'assign' | 'bulk' | 'export'>('assign');
   const [autoPrefix, setAutoPrefix] = useState('desk-');
@@ -107,7 +116,7 @@ export default function LabellingPanel({
     setImportedIds(prev => prev.map(i =>
       i.id === item.id ? { ...i, assigned: true, assignedTo: selectedObj.id } : i
     ));
-  }, [selectedObj, onBulkUpdate]);
+  }, [selectedObj, onBulkUpdate, setImportedIds]);
 
   // Unassign an ID
   const handleUnassign = useCallback((item: ImportedId) => {
