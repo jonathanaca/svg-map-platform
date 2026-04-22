@@ -18,6 +18,11 @@ export default function FurnitureMesh({ obj, canvasW, canvasH, scale }: Props) {
 
   const furnitureType = (obj.metadata as Record<string, unknown>)?.furnitureType as string | undefined;
 
+  // Key the entire render by furnitureType + position so R3F fully recreates meshes on type change
+  return <group key={`${furnitureType}-${x}-${z}-${w}-${d}`}><FurnitureMeshInner x={x} z={z} w={w} d={d} furnitureType={furnitureType} /></group>;
+}
+
+function FurnitureMeshInner({ x, z, w, d, furnitureType }: { x: number; z: number; w: number; d: number; furnitureType?: string }) {
   // ── Plant ──
   if (furnitureType === 'plant' || furnitureType === 'plant-large') {
     const r = Math.max(w, d) / 2;

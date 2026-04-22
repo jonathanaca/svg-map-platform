@@ -560,8 +560,10 @@ export default function AmenityPin({ obj, canvasW, canvasH, scale }: Props) {
   const labelH = iconId === 'wifi' ? 0.08 : 0.45;
 
   return (
-    <group position={[x, 0, z]}>
-      {renderAsset()}
+    <group position={[x, 0, z]} key={`${iconId}-${x}-${z}`}>
+      <group key={iconId || 'default'}>
+        {renderAsset()}
+      </group>
 
       {/* Label */}
       <Html position={[0, labelH, 0]} center style={{ pointerEvents: 'none' }}>
