@@ -1146,8 +1146,16 @@ export default function EditorPage() {
           // Clicked an already-selected object in multi-select — keep selection, just set primary
           setSelectedObjectId_(hitId);
         } else {
-          // Normal click: single select
-          setSelectedObjectId(hitId);
+          // Check if this object is part of a group — select entire group
+          const groupId = hitObj.group_id;
+          if (groupId) {
+            const groupMembers = objects.filter(o => o.group_id === groupId).map(o => o.id);
+            setSelectedObjectIds(new Set(groupMembers));
+            setSelectedObjectId_(hitId);
+          } else {
+            // Normal click: single select
+            setSelectedObjectId(hitId);
+          }
         }
 
         // Allow dragging if not locked — moves all selected objects
