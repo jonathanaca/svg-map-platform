@@ -1140,12 +1140,10 @@ export default function EditorPage() {
 
         if (e.shiftKey) {
           // Shift+click: toggle in multi-selection
-          setSelectedObjectIds(prev => {
-            const next = new Set(prev);
-            if (next.has(hitId)) { next.delete(hitId); } else { next.add(hitId); }
-            setSelectedObjectId_(next.size > 0 ? hitId : null);
-            return next;
-          });
+          const next = new Set(selectedObjectIdsRef.current);
+          if (next.has(hitId)) { next.delete(hitId); } else { next.add(hitId); }
+          setSelectedObjectId_(next.size > 0 ? hitId : null);
+          setSelectedObjectIds(next);
         } else if (selectedObjectIdsRef.current.has(hitId) && selectedObjectIdsRef.current.size > 1) {
           // Clicked an already-selected object in multi-select — keep selection, just set primary
           setSelectedObjectId_(hitId);
