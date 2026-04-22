@@ -1197,7 +1197,7 @@ export default function EditorPage() {
       e.preventDefault();
       return;
     }
-  }, [activeTool, drawingOutline, outlinePoints, selectedObjectId, objects, layers, floorplanId, editorMode, activeLayerId, imageDims, placeWidth, placeHeight, placingDeskLayout, wallThickness]);
+  }, [activeTool, drawingOutline, outlinePoints, selectedObjectId, objects, layers, floorplanId, editorMode, activeLayerId, imageDims, placeWidth, placeHeight, placingDeskLayout, wallThickness, placingAmenity, placingFurniture]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     // ── Space-bar panning ──
