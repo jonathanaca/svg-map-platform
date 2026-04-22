@@ -242,6 +242,25 @@ function computeSnap(
   return { snappedX, snappedY, guides };
 }
 
+// Module-level storage for imported label IDs — survives ANY React state change
+let _importedLabelIds: { id: string; label?: string; assigned?: boolean }[] = [];
+let _labelIdListeners: Set<() => void> = new Set();
+function getImportedLabelIds() { return _importedLabelIds; }
+function setImportedLabelIdsGlobal(ids: { id: string; label?: string; assigned?: boolean }[]) {
+  _importedLabelIds = ids;
+  _labelIdListeners.forEach(fn => fn());
+}
+
+function useImportedLabelIds(): [typeof _importedLabelIds, typeof setImportedLabelIdsGlobal] {
+  const [, forceUpdate] = useState(0);
+  useEffect(() => {
+    const listener = () => forceUpdate(n => n + 1);
+    _labelIdListeners.add(listener);
+    return () => { _labelIdListeners.delete(listener); };
+  }, []);
+  return [_importedLabelIds, setImportedLabelIdsGlobal];
+}
+
 export default function EditorPage() {
   const { floorplanId } = useParams<{ floorplanId: string }>();
   const navigate = useNavigate();
@@ -368,21 +387,7 @@ export default function EditorPage() {
   const [bottomTab, setBottomTab] = useState<'labelling' | 'validation'>('labelling');
   const [leftSidebarTab, setLeftSidebarTab] = useState<'layers' | 'objects'>('layers');
   const [rightSidebarTab, setRightSidebarTab] = useState<'properties' | 'label'>('properties');
-  // Store imported label IDs in sessionStorage so they survive undo/redo/re-renders
-  const LABEL_IDS_KEY = `label-ids-${floorplanId}`;
-  const [importedLabelIds, setImportedLabelIds_] = useState<{ id: string; label?: string; assigned?: boolean }[]>(() => {
-    try {
-      const stored = sessionStorage.getItem(LABEL_IDS_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch { return []; }
-  });
-  const setImportedLabelIds = useCallback((v: { id: string; label?: string; assigned?: boolean }[] | ((prev: { id: string; label?: string; assigned?: boolean }[]) => { id: string; label?: string; assigned?: boolean }[])) => {
-    setImportedLabelIds_(prev => {
-      const next = typeof v === 'function' ? v(prev) : v;
-      try { sessionStorage.setItem(LABEL_IDS_KEY, JSON.stringify(next)); } catch {}
-      return next;
-    });
-  }, [LABEL_IDS_KEY]);
+  const [importedLabelIds, setImportedLabelIds] = useImportedLabelIds();
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
 
   // Editor search
