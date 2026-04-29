@@ -150,6 +150,63 @@ function pointInPolygon(px: number, py: number, poly: { x: number; y: number }[]
   return inside;
 }
 
+function rectCornersInsidePolygon(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  poly: { x: number; y: number }[],
+): boolean {
+  return (
+    pointInPolygon(x, y, poly) &&
+    pointInPolygon(x + width, y, poly) &&
+    pointInPolygon(x, y + height, poly) &&
+    pointInPolygon(x + width, y + height, poly)
+  );
+}
+
+function clipRoomRectToOutline(
+  room: { x: number; y: number; width: number; height: number },
+  outlinePts: { x: number; y: number }[],
+  minSize = 20,
+): { x: number; y: number; width: number; height: number } | null {
+  const minX = Math.min(...outlinePts.map((p) => p.x));
+  const minY = Math.min(...outlinePts.map((p) => p.y));
+  const maxX = Math.max(...outlinePts.map((p) => p.x));
+  const maxY = Math.max(...outlinePts.map((p) => p.y));
+
+  let left = Math.max(room.x, minX);
+  let top = Math.max(room.y, minY);
+  let right = Math.min(room.x + room.width, maxX);
+  let bottom = Math.min(room.y + room.height, maxY);
+
+  if (right - left < minSize || bottom - top < minSize) return null;
+
+  const maxIterations = 200;
+  let i = 0;
+  while (i < maxIterations) {
+    const width = right - left;
+    const height = bottom - top;
+    if (width < minSize || height < minSize) return null;
+    if (rectCornersInsidePolygon(left, top, width, height, outlinePts)) {
+      return { x: left, y: top, width, height };
+    }
+
+    const tl = pointInPolygon(left, top, outlinePts);
+    const tr = pointInPolygon(right, top, outlinePts);
+    const bl = pointInPolygon(left, bottom, outlinePts);
+    const br = pointInPolygon(right, bottom, outlinePts);
+
+    if (!tl || !bl) left += 1;
+    if (!tr || !br) right -= 1;
+    if (!tl || !tr) top += 1;
+    if (!bl || !br) bottom -= 1;
+    i++;
+  }
+
+  return null;
+}
+
 function closestPointOnSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
   const dx = bx - ax, dy = by - ay;
   const len2 = dx * dx + dy * dy;
@@ -641,30 +698,40 @@ export default function EditorPage() {
         return;
       }
 
-      // Use existing ai-outline polygon to clip rooms
-      const outlineObj = objects.find((o) => o.svg_id === 'ai-outline' && o.geometry.type === 'polygon' && o.geometry.points?.length);
+      // Use best available polygon outline to clip rooms.
+      // Prefer AI outline, then floor outline, then largest area polygon.
+      const polygonOutlines = objects.filter(
+        (o) =>
+          o.geometry.type === 'polygon' &&
+          o.geometry.points?.length &&
+          (o.svg_id === 'ai-outline' || o.svg_id === 'floor-outline' || o.object_type === 'area')
+      );
+      const outlineObj =
+        polygonOutlines.find((o) => o.svg_id === 'ai-outline') ??
+        polygonOutlines.find((o) => o.svg_id === 'floor-outline') ??
+        polygonOutlines
+          .map((o) => {
+            const pts = o.geometry.points ?? [];
+            const area = Math.abs(
+              pts.reduce((sum, p, i) => {
+                const q = pts[(i + 1) % pts.length];
+                return sum + p.x * q.y - q.x * p.y;
+              }, 0) / 2
+            );
+            return { o, area };
+          })
+          .sort((a, b) => b.area - a.area)[0]?.o;
       const outlinePts = outlineObj?.geometry.points ?? null;
-      const clipMinX = outlinePts ? Math.min(...outlinePts.map((p) => p.x)) : 0;
-      const clipMinY = outlinePts ? Math.min(...outlinePts.map((p) => p.y)) : 0;
-      const clipMaxX = outlinePts ? Math.max(...outlinePts.map((p) => p.x)) : Infinity;
-      const clipMaxY = outlinePts ? Math.max(...outlinePts.map((p) => p.y)) : Infinity;
-
       const clippedRooms = result.rooms
-        .filter((room) => {
-          const cx = room.x + room.width / 2;
-          const cy = room.y + room.height / 2;
-          if (cx < clipMinX || cx > clipMaxX || cy < clipMinY || cy > clipMaxY) return false;
-          if (outlinePts) return pointInPolygon(cx, cy, outlinePts);
-          return true;
-        })
         .map((room) => {
           if (!outlinePts) return room;
-          const x = Math.max(room.x, clipMinX);
-          const y = Math.max(room.y, clipMinY);
-          const maxX = Math.min(room.x + room.width, clipMaxX);
-          const maxY = Math.min(room.y + room.height, clipMaxY);
-          return { ...room, x, y, width: Math.max(20, maxX - x), height: Math.max(20, maxY - y) };
-        });
+          const cx = room.x + room.width / 2;
+          const cy = room.y + room.height / 2;
+          if (!pointInPolygon(cx, cy, outlinePts)) return null;
+          const clipped = clipRoomRectToOutline(room, outlinePts, 20);
+          return clipped ? { ...room, ...clipped } : null;
+        })
+        .filter((room): room is NonNullable<typeof room> => Boolean(room));
 
       const created = await Promise.all(clippedRooms.map((room) =>
         createObject(floorplanId, {
@@ -2354,48 +2421,46 @@ export default function EditorPage() {
           >
             <span className="dc-tool-label">Upload Image</span>
           </button>
-          {floorplan?.source_image_path && (
-            <>
-              <button
-                className="dc-tool-btn"
-                onClick={handleAIOutline}
-                disabled={aiOutlineAnalyzing || aiRoomsAnalyzing}
-                title="AI: detect building outline"
-                style={{ background: '#0f172a', color: '#fff', borderColor: '#334155' }}
-              >
-                {aiOutlineAnalyzing ? (
-                  <>
-                    <span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block', flexShrink: 0 }} />
-                    <span className="dc-tool-label">Detecting...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18" opacity="0.4"/></svg>
-                    <span className="dc-tool-label">AI Outline</span>
-                  </>
-                )}
-              </button>
-              <button
-                className="dc-tool-btn"
-                onClick={handleAIRooms}
-                disabled={aiOutlineAnalyzing || aiRoomsAnalyzing}
-                title="AI: detect rooms and add to map"
-                style={{ background: '#7c3aed', color: '#fff', borderColor: '#6d28d9' }}
-              >
-                {aiRoomsAnalyzing ? (
-                  <>
-                    <span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block', flexShrink: 0 }} />
-                    <span className="dc-tool-label">Detecting...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg>
-                    <span className="dc-tool-label">AI Rooms</span>
-                  </>
-                )}
-              </button>
-            </>
-          )}
+          <>
+            <button
+              className="dc-tool-btn"
+              onClick={handleAIOutline}
+              disabled={!floorplan?.source_image_path || aiOutlineAnalyzing || aiRoomsAnalyzing}
+              title={floorplan?.source_image_path ? 'AI: detect building outline' : 'Upload a floor plan image first'}
+              style={{ background: '#0f172a', color: '#fff', borderColor: '#334155' }}
+            >
+              {aiOutlineAnalyzing ? (
+                <>
+                  <span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block', flexShrink: 0 }} />
+                  <span className="dc-tool-label">Detecting...</span>
+                </>
+              ) : (
+                <>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18" opacity="0.4"/></svg>
+                  <span className="dc-tool-label">AI Outline</span>
+                </>
+              )}
+            </button>
+            <button
+              className="dc-tool-btn"
+              onClick={handleAIRooms}
+              disabled={!floorplan?.source_image_path || aiOutlineAnalyzing || aiRoomsAnalyzing}
+              title={floorplan?.source_image_path ? 'AI: detect rooms and add to map' : 'Upload a floor plan image first'}
+              style={{ background: '#7c3aed', color: '#fff', borderColor: '#6d28d9' }}
+            >
+              {aiRoomsAnalyzing ? (
+                <>
+                  <span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block', flexShrink: 0 }} />
+                  <span className="dc-tool-label">Detecting...</span>
+                </>
+              ) : (
+                <>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg>
+                  <span className="dc-tool-label">AI Rooms</span>
+                </>
+              )}
+            </button>
+          </>
         </div>
         )}
 

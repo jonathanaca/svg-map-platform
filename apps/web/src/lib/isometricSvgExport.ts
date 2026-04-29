@@ -13,6 +13,10 @@ function darkenHex(hex: string, factor = 0.65): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
+function pointsStr(points: { x: number; y: number }[]): string {
+  return points.map((p) => `${p.x},${p.y}`).join(' ');
+}
+
 function getDepth(objectType: string): number {
   switch (objectType) {
     case 'room': return 18;
@@ -60,6 +64,25 @@ function renderDepthShadow(obj: MapObject, depth: number, color: string): string
     const bottom = `<polygon points="${topBL} ${topBR} ${botBR} ${botBL}" fill="${darkenHex(color, 0.5)}" opacity="0.8"/>`;
     return right + '\n' + bottom;
   }
+  if (geom.type === 'polygon' && geom.points?.length) {
+    const pts = geom.points;
+    const shifted = pts.map((p) => ({ x: p.x + dx, y: p.y + dy }));
+    const faces: string[] = [];
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i];
+      const b = pts[(i + 1) % pts.length];
+      const a2 = shifted[i];
+      const b2 = shifted[(i + 1) % pts.length];
+      // Use edge orientation to bias visibility towards right/bottom faces.
+      const ex = b.x - a.x;
+      const ey = b.y - a.y;
+      if (ey < -2 && ex < 2) continue;
+      faces.push(
+        `<polygon points="${a.x},${a.y} ${b.x},${b.y} ${b2.x},${b2.y} ${a2.x},${a2.y}" fill="${darkenHex(color, 0.62)}" opacity="0.7"/>`
+      );
+    }
+    return faces.join('\n');
+  }
   return '';
 }
 
@@ -74,8 +97,8 @@ export function exportIsometricSvg(
   const viewW = maxDim * 2.2;
   const viewH = maxDim * 1.6;
 
-  // Cisco Spaces-style angle: tilt with perspective feel, centered in viewport
-  const isoTransform = `translate(${viewW * 0.5}, ${viewH * 0.45}) scale(0.65, 0.5) rotate(-30) translate(${-canvasW / 2}, ${-canvasH / 2})`;
+  // Slightly stronger tilt + scale for a more volumetric read.
+  const isoTransform = `translate(${viewW * 0.5}, ${viewH * 0.44}) scale(0.68, 0.54) rotate(-31) translate(${-canvasW / 2}, ${-canvasH / 2})`;
 
   let svg = `<?xml version="1.0" encoding="UTF-8"?>\n`;
   svg += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewW} ${viewH}" width="${viewW}" height="${viewH}" style="background:#0f1419">\n`;
@@ -111,13 +134,14 @@ export function exportIsometricSvg(
     svg += `  <image href="${bgDataUri}" x="0" y="0" width="${canvasW}" height="${canvasH}" opacity="0.5" preserveAspectRatio="xMidYMid meet"/>\n`;
   }
 
-  // Sort objects back-to-front (top-left first so depth shadows don't overlap forward objects)
+  // Sort objects back-to-front by "footprint depth" in screen space.
   const sorted = [...objects]
     .filter(o => o.visible)
     .sort((a, b) => {
-      const ay = (a.geometry.y ?? 0) + (a.geometry.x ?? 0);
-      const by = (b.geometry.y ?? 0) + (b.geometry.x ?? 0);
-      return ay - by;
+      const aBottom = (a.geometry.y ?? 0) + (a.geometry.height ?? 0);
+      const bBottom = (b.geometry.y ?? 0) + (b.geometry.height ?? 0);
+      if (aBottom !== bBottom) return aBottom - bBottom;
+      return (a.geometry.x ?? 0) - (b.geometry.x ?? 0);
     });
 
   const bookable = sorted.filter(o => o.object_type === 'room' || o.object_type === 'desk');
@@ -131,7 +155,7 @@ export function exportIsometricSvg(
     if (depth > 3) {
       svg += `  ${renderDepthShadow(obj, depth, color)}\n`;
     }
-    svg += `  ${renderShape(obj, `fill="${color}" opacity="0.4" stroke="${obj.stroke_color || '#6b7280'}" stroke-width="1"`)}\n`;
+    svg += `  ${renderShape(obj, `fill="${color}" opacity="0.42" stroke="${obj.stroke_color || '#6b7280'}" stroke-width="1.2"`)}\n`;
   }
 
   // Depth shadows for bookable spaces (rendered before the top faces)
@@ -148,7 +172,8 @@ export function exportIsometricSvg(
     const mapId = obj.svg_id || obj.id;
     const placeosId = mapId.startsWith('area-') ? `${mapId}-status` : `area-${mapId}-status`;
     const cls = obj.object_type === 'desk' ? 'st5' : 'st4';
-    svg += `    ${renderShape(obj, `id="${escXml(placeosId)}" class="${cls}"`)}\n`;
+    const topStroke = obj.object_type === 'desk' ? '#2f3b4a' : '#334155';
+    svg += `    ${renderShape(obj, `id="${escXml(placeosId)}" class="${cls}" stroke="${topStroke}" stroke-width="1.1"`)}\n`;
   }
   svg += `  </g>\n`;
 
@@ -159,12 +184,15 @@ export function exportIsometricSvg(
     const geom = obj.geometry;
     const cx = (geom.x ?? 0) + (geom.width ?? 50) / 2;
     const cy = (geom.y ?? 0) + (geom.height ?? 50) / 2;
-    const fontSize = Math.max(8, Math.min((geom.width ?? 50) / 5, 18));
+    const area = (geom.width ?? 50) * (geom.height ?? 50);
+    if (area < 2800) continue;
+    const fontSize = Math.max(8, Math.min((geom.width ?? 50) / 6, 16));
+    const label = obj.label.length > 22 ? `${obj.label.slice(0, 21)}…` : obj.label;
     // Label background
-    const lw = obj.label.length * fontSize * 0.55 + 12;
+    const lw = label.length * fontSize * 0.52 + 12;
     const lh = fontSize + 8;
     svg += `    <rect x="${cx - lw / 2}" y="${cy - lh / 2 - 2}" width="${lw}" height="${lh}" rx="3" fill="#1a2030" opacity="0.85"/>\n`;
-    svg += `    <text x="${cx}" y="${cy}" class="iso-label" font-size="${fontSize}">${escXml(obj.label)}</text>\n`;
+    svg += `    <text x="${cx}" y="${cy}" class="iso-label" font-size="${fontSize}">${escXml(label)}</text>\n`;
   }
   svg += `  </g>\n`;
 
