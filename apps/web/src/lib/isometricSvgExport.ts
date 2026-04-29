@@ -97,8 +97,8 @@ export function exportIsometricSvg(
   const viewW = maxDim * 2.2;
   const viewH = maxDim * 1.6;
 
-  // Slightly stronger tilt + scale for a more volumetric read.
-  const isoTransform = `translate(${viewW * 0.5}, ${viewH * 0.45}) scale(0.69, 0.54) rotate(-30) translate(${-canvasW / 2}, ${-canvasH / 2})`;
+  // Cabinet projection: building stays axis-aligned, vertical foreshortening only.
+  const isoTransform = `translate(${viewW * 0.5}, ${viewH * 0.45}) scale(0.85, 0.55) translate(${-canvasW / 2}, ${-canvasH / 2})`;
 
   let svg = `<?xml version="1.0" encoding="UTF-8"?>\n`;
   svg += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewW} ${viewH}" width="${viewW}" height="${viewH}" style="background:#0f1419">\n`;
