@@ -18,8 +18,8 @@ export interface AnalysisResult {
   rooms: DetectedRoom[];
 }
 
-// Max dimension sent to the vision API (keeps base64 under ~1 MB)
-const MAX_ANALYSIS_DIM = 2048;
+// Max dimension sent to the vision API (keeps base64 under ~1.5 MB)
+const MAX_ANALYSIS_DIM = 2400;
 
 type Point = { x: number; y: number };
 
@@ -67,6 +67,37 @@ function sanitizeId(raw: string, index: number, seen: Set<string>): string {
   return unique;
 }
 
+function clusterValues(vals: number[], threshold: number): Map<number, number> {
+  const sorted = [...new Set(vals)].sort((a, b) => a - b);
+  const result = new Map<number, number>();
+  let i = 0;
+  while (i < sorted.length) {
+    const group = [sorted[i]];
+    while (i + 1 < sorted.length && sorted[i + 1] - sorted[i] <= threshold) {
+      i++;
+      group.push(sorted[i]);
+    }
+    const median = group[Math.floor(group.length / 2)];
+    for (const v of group) result.set(v, median);
+    i++;
+  }
+  return result;
+}
+
+function snapRoomEdges(rooms: DetectedRoom[], threshold: number): DetectedRoom[] {
+  const xs = rooms.flatMap((r) => [r.x, r.x + r.width]);
+  const ys = rooms.flatMap((r) => [r.y, r.y + r.height]);
+  const snapX = clusterValues(xs, threshold);
+  const snapY = clusterValues(ys, threshold);
+  return rooms.map((r) => {
+    const x = snapX.get(r.x) ?? r.x;
+    const y = snapY.get(r.y) ?? r.y;
+    const x2 = snapX.get(r.x + r.width) ?? (r.x + r.width);
+    const y2 = snapY.get(r.y + r.height) ?? (r.y + r.height);
+    return { ...r, x, y, width: Math.max(20, x2 - x), height: Math.max(20, y2 - y) };
+  });
+}
+
 export async function analyzeFloorplan(
   imagePath: string,
   imageWidth: number,
@@ -86,18 +117,22 @@ export async function analyzeFloorplan(
 
   console.log(`Preparing image: ${imageWidth}x${imageHeight} → ${send_width}x${send_height}`);
 
-  // Overlay a coordinate grid so the model can read pixel positions accurately
-  const spacing = Math.max(100, Math.round(send_width / 10 / 50) * 50);
+  // Overlay a dense coordinate grid — fine lines every ~100px, labelled every other line
+  const spacing = Math.max(50, Math.round(send_width / 20 / 25) * 25);
   const lines: string[] = [];
   const labels: string[] = [];
 
-  for (let x = spacing; x < send_width; x += spacing) {
-    lines.push(`<line x1="${x}" y1="0" x2="${x}" y2="${send_height}" stroke="red" stroke-width="1" opacity="0.6"/>`);
-    labels.push(`<text x="${x + 3}" y="14" fill="red" font-size="13" font-family="Arial" font-weight="bold" opacity="0.9">${Math.round(x / scale_factor)}</text>`);
+  let xi = 0;
+  for (let x = spacing; x < send_width; x += spacing, xi++) {
+    const isMajor = xi % 2 === 1;
+    lines.push(`<line x1="${x}" y1="0" x2="${x}" y2="${send_height}" stroke="red" stroke-width="${isMajor ? 1.5 : 0.8}" opacity="${isMajor ? 0.7 : 0.4}"/>`);
+    if (isMajor) labels.push(`<text x="${x + 3}" y="14" fill="red" font-size="11" font-family="Arial" font-weight="bold" opacity="0.95">${Math.round(x / scale_factor)}</text>`);
   }
-  for (let y = spacing; y < send_height; y += spacing) {
-    lines.push(`<line x1="0" y1="${y}" x2="${send_width}" y2="${y}" stroke="red" stroke-width="1" opacity="0.6"/>`);
-    labels.push(`<text x="3" y="${y - 3}" fill="red" font-size="13" font-family="Arial" font-weight="bold" opacity="0.9">${Math.round(y / scale_factor)}</text>`);
+  let yi = 0;
+  for (let y = spacing; y < send_height; y += spacing, yi++) {
+    const isMajor = yi % 2 === 1;
+    lines.push(`<line x1="0" y1="${y}" x2="${send_width}" y2="${y}" stroke="red" stroke-width="${isMajor ? 1.5 : 0.8}" opacity="${isMajor ? 0.7 : 0.4}"/>`);
+    if (isMajor) labels.push(`<text x="3" y="${y - 3}" fill="red" font-size="11" font-family="Arial" font-weight="bold" opacity="0.95">${Math.round(y / scale_factor)}</text>`);
   }
 
   const svg_overlay = Buffer.from(
@@ -148,10 +183,18 @@ For each space, follow these steps:
 5. Set width,height to the interior dimensions of that space
 
 Rules:
-• Bounding boxes must align tightly to the room's own walls — do NOT bleed into adjacent rooms or corridors
-• Each labelled space gets its own separate bounding box — do not merge adjacent rooms
-• Include ALL spaces: meeting rooms, focus rooms, open-plan zones, collaboration areas, phone booths, wellness rooms, print/copy areas, storage, locker rooms, facilities (toilets, showers, lifts, stairs, kitchens, teapoints), reception, lounges, any other named space
-• type must be one of: meeting | focus | collaboration | open-plan | facilities | other
+• Bounding boxes must align tightly to the room's OWN enclosing walls — stop exactly at each wall line
+• Do NOT bleed into adjacent rooms, corridors, or open areas
+• Each labelled space gets its own separate bounding box — never merge adjacent rooms
+
+Size guidance (measure wall-to-wall, interior only):
+• focus (phone booth / quiet pod / 1-person room): very small enclosed space — width AND height should each be LESS than 8% of the total floor plan width. If you measure larger than this, re-check that you are not including neighbouring space.
+• meeting (enclosed meeting room): medium enclosed room — typically 8–25% of floor plan width. Measure ONLY the interior of that one room, stopping at its four walls.
+• collaboration / open-plan: larger open zones, can be wide
+• facilities / other: varies
+
+Include ALL spaces: meeting rooms, focus rooms, open-plan zones, collaboration areas, phone booths, wellness rooms, print/copy areas, storage, locker rooms, facilities (toilets, showers, lifts, stairs, kitchens, teapoints), reception, lounges, any other named space.
+type must be one of: meeting | focus | collaboration | open-plan | facilities | other
 
 Return ONLY valid JSON, no markdown:
 {"outline":null,"walls":[],"rooms":[{"id":"meeting-3-44","label":"MEETING 3.44","type":"meeting","x":500,"y":200,"width":180,"height":140}]}`;
@@ -184,10 +227,7 @@ Return ONLY valid JSON, no markdown:
       {
         role: 'user',
         content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: 'image/jpeg', data: base64 },
-          },
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
           { type: 'text', text: prompt },
         ],
       },
@@ -238,12 +278,10 @@ Return ONLY valid JSON, no markdown:
 
   if (parsed.rooms?.length) {
     const seen = new Set<string>();
-    analysis.rooms = parsed.rooms.map((r, i) => {
-      // Prefer PlaceOS canonical ID derived from the label (e.g. "12-87" → "area-12.87-free")
+    const rawRooms = parsed.rooms.map((r, i) => {
       const placeos_id = toPlaceOSId(r.label ?? '');
       const raw_id = placeos_id ?? r.id ?? `room-${i}`;
       const unique_id = sanitizeId(raw_id, i, seen);
-
       return {
         id: unique_id,
         label: r.label || `Room ${i + 1}`,
@@ -254,6 +292,9 @@ Return ONLY valid JSON, no markdown:
         height: Math.max(20, Math.round(r.height)),
       };
     });
+    // Snap shared edges: rooms within snapThreshold px of each other get aligned
+    const snapThreshold = Math.max(imageWidth, imageHeight) * 0.008;
+    analysis.rooms = snapRoomEdges(rawRooms, snapThreshold);
   }
 
   console.log(`Detected: outline=${analysis.outline ? 'yes' : 'no'}, walls=${analysis.walls.length}, rooms=${analysis.rooms.length}`);

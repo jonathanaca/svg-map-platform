@@ -150,6 +150,15 @@ function pointInPolygon(px: number, py: number, poly: { x: number; y: number }[]
   return inside;
 }
 
+function closestPointOnSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
+  const dx = bx - ax, dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return { dist: Math.hypot(px - ax, py - ay), cx: ax, cy: ay };
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2));
+  const cx = ax + t * dx, cy = ay + t * dy;
+  return { dist: Math.hypot(px - cx, py - cy), cx, cy };
+}
+
 function getHandlePos(h: Handle, x: number, y: number, w: number, h2: number): [number, number] {
   const mx = x + w / 2, my = y + h2 / 2;
   switch (h) {
@@ -463,6 +472,7 @@ export default function EditorPage() {
   const [drawing, setDrawing] = useState<{ objectId: string; startX: number; startY: number } | null>(null);
   const [editing, setEditing] = useState<{ objectId: string; value: string } | null>(null);
   const [vertexDrag, setVertexDrag] = useState<{ objectId: string; idx: number } | null>(null);
+  const [edgeHover, setEdgeHover] = useState<{ objectId: string; edgeIdx: number; px: number; py: number } | null>(null);
   const [snapGuides, setSnapGuides] = useState<{ type: 'h' | 'v'; pos: number }[]>([]);
 
   // Space-bar pan state
@@ -1210,6 +1220,22 @@ export default function EditorPage() {
 
     // ── Select tool: try to select/move objects ──
     if (activeTool === 'select') {
+      // Edge-click: insert vertex into selected polygon at hover point
+      if (edgeHover && edgeHover.objectId === selectedObjectId) {
+        const insertIdx = edgeHover.edgeIdx + 1;
+        const { px: ex, py: ey } = edgeHover;
+        setObjects((prev) => prev.map((o) => {
+          if (o.id !== edgeHover.objectId || !o.geometry.points) return o;
+          const newPts = [...o.geometry.points.slice(0, insertIdx), { x: ex, y: ey }, ...o.geometry.points.slice(insertIdx)];
+          const xs = newPts.map((p) => p.x), ys = newPts.map((p) => p.y);
+          return { ...o, geometry: { ...o.geometry, points: newPts, x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) } };
+        }));
+        setVertexDrag({ objectId: edgeHover.objectId, idx: insertIdx });
+        setEdgeHover(null);
+        e.preventDefault();
+        return;
+      }
+
       // Check resize handles first
       if (selectedObjectId) {
         const sel = objects.find((o) => o.id === selectedObjectId);
@@ -1315,7 +1341,7 @@ export default function EditorPage() {
       e.preventDefault();
       return;
     }
-  }, [activeTool, drawingOutline, outlinePoints, selectedObjectId, objects, layers, floorplanId, editorMode, activeLayerId, imageDims, placeWidth, placeHeight, placingDeskLayout, wallThickness, placingAmenity, placingFurniture]);
+  }, [activeTool, drawingOutline, outlinePoints, selectedObjectId, objects, layers, floorplanId, editorMode, activeLayerId, imageDims, placeWidth, placeHeight, placingDeskLayout, wallThickness, placingAmenity, placingFurniture, edgeHover]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     // ── Space-bar panning ──
@@ -1467,9 +1493,37 @@ export default function EditorPage() {
       setWallPreview({ x: wx, y: wy });
     }
 
+    // Edge-hover detection for selected polygon (enables click-to-insert-vertex)
+    if (!dragging && !resizing && !vertexDrag && activeTool === 'select' && selectedObjectId) {
+      const sel = objects.find((o) => o.id === selectedObjectId);
+      if (sel?.geometry.type === 'polygon' && sel.geometry.points?.length) {
+        const pts = sel.geometry.points;
+        const vr = Math.max(10, Math.max(imageDims?.width ?? 1000, imageDims?.height ?? 1000) * 0.006);
+        const edgeThreshold = Math.max(8, Math.max(imageDims?.width ?? 1000, imageDims?.height ?? 1000) * 0.005);
+        const nearVertex = pts.some((p) => Math.hypot(p.x - x, p.y - y) < vr);
+        if (!nearVertex) {
+          let best: { dist: number; edgeIdx: number; cx: number; cy: number } | null = null;
+          for (let i = 0; i < pts.length; i++) {
+            const next = pts[(i + 1) % pts.length];
+            const { dist, cx, cy } = closestPointOnSegment(x, y, pts[i].x, pts[i].y, next.x, next.y);
+            if (dist < edgeThreshold && (!best || dist < best.dist)) {
+              best = { dist, edgeIdx: i, cx, cy };
+            }
+          }
+          setEdgeHover(best ? { objectId: sel.id, edgeIdx: best.edgeIdx, px: best.cx, py: best.cy } : null);
+        } else {
+          setEdgeHover(null);
+        }
+      } else {
+        setEdgeHover(null);
+      }
+    } else if (dragging || resizing || vertexDrag) {
+      setEdgeHover(null);
+    }
+
     // Update cursor coordinates for status bar
     setCursorCoords({ x: Math.round(x), y: Math.round(y) });
-  }, [dragging, resizing, vertexDrag, drawing, rectDraw, objects, activeTool, wallStart, editorState.snapEnabled, editorState.gridSize, panning, rotating, handleObjectChange]);
+  }, [dragging, resizing, vertexDrag, drawing, rectDraw, objects, activeTool, wallStart, editorState.snapEnabled, editorState.gridSize, panning, rotating, handleObjectChange, selectedObjectId, imageDims]);
 
   const handleMouseUp = useCallback(() => {
     if (panning) { setPanning(false); panStartRef.current = null; return; }
@@ -3019,13 +3073,13 @@ export default function EditorPage() {
               }
 
               if (geom.type === 'polygon' && geom.points) {
-                const pts = geom.points.map((p) => `${p.x},${p.y}`).join(' ');
+                const ptsStr = geom.points.map((p) => `${p.x},${p.y}`).join(' ');
                 const isPolySelected = obj.id === selectedObjectId && activeTool === 'select' && editorMode === 'design';
                 const vr = Math.max(5, Math.max(canvasW, canvasH) * 0.004);
                 return (
                   <g key={obj.id}>
                     <polygon
-                      points={pts}
+                      points={ptsStr}
                       fill={fillColor} stroke={strokeColor} strokeWidth={sw}
                       opacity={effectiveOpacity}
                       style={{ cursor: 'pointer' }}
@@ -3039,11 +3093,31 @@ export default function EditorPage() {
                         data-ui-only="true"
                         onMouseDown={(e) => {
                           e.stopPropagation();
-                          setVertexDrag({ objectId: obj.id, idx: vi });
                           e.preventDefault();
+                          if (e.altKey) {
+                            // Alt+click — delete this vertex (minimum 3 kept)
+                            if (geom.points!.length <= 3) return;
+                            const newPts = geom.points!.filter((_, i) => i !== vi);
+                            const xs = newPts.map((p) => p.x), ys = newPts.map((p) => p.y);
+                            const newGeom = { ...geom, points: newPts, x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
+                            setObjects((prev) => prev.map((o) => o.id === obj.id ? { ...o, geometry: newGeom } : o));
+                            updateObject(obj.id, { geometry: newGeom }).catch(() => {});
+                            setDirty(true);
+                            return;
+                          }
+                          setVertexDrag({ objectId: obj.id, idx: vi });
                         }}
                       />
                     ))}
+                    {/* Edge hover indicator — green dot follows cursor along the edge */}
+                    {isPolySelected && edgeHover?.objectId === obj.id && (
+                      <circle
+                        cx={edgeHover.px} cy={edgeHover.py} r={vr * 0.8}
+                        fill="#22c55e" stroke="white" strokeWidth={1.5}
+                        style={{ pointerEvents: 'none', cursor: 'copy' }}
+                        data-ui-only="true"
+                      />
+                    )}
                   </g>
                 );
               }
