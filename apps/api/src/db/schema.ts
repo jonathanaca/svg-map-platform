@@ -2,9 +2,31 @@ import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import os from 'os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.resolve(__dirname, '../../../../data/svg-map.db');
+const LEGACY_DB_PATH = path.resolve(__dirname, '../../../../data/svg-map.db');
+const DEFAULT_DB_PATH = path.join(os.homedir(), '.svg-map-platform', 'data', 'svg-map.db');
+const DB_PATH = process.env.SVG_MAP_DB_PATH || DEFAULT_DB_PATH;
+
+function migrateLegacyDbIfNeeded(targetPath: string): void {
+  if (targetPath === LEGACY_DB_PATH) return;
+  if (!fs.existsSync(LEGACY_DB_PATH)) return;
+  if (fs.existsSync(targetPath)) return;
+
+  const targetDir = path.dirname(targetPath);
+  if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+
+  fs.copyFileSync(LEGACY_DB_PATH, targetPath);
+
+  const legacyWal = `${LEGACY_DB_PATH}-wal`;
+  const legacyShm = `${LEGACY_DB_PATH}-shm`;
+  const targetWal = `${targetPath}-wal`;
+  const targetShm = `${targetPath}-shm`;
+
+  if (fs.existsSync(legacyWal)) fs.copyFileSync(legacyWal, targetWal);
+  if (fs.existsSync(legacyShm)) fs.copyFileSync(legacyShm, targetShm);
+}
 
 let db: Database.Database;
 
@@ -12,6 +34,7 @@ export function getDb(): Database.Database {
   if (!db) {
     const dir = path.dirname(DB_PATH);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    migrateLegacyDbIfNeeded(DB_PATH);
 
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');

@@ -19,11 +19,11 @@ function pointsStr(points: { x: number; y: number }[]): string {
 
 function getDepth(objectType: string): number {
   switch (objectType) {
-    case 'room': return 18;
-    case 'zone': case 'area': return 4;
-    case 'desk': return 8;
-    case 'parking': case 'locker': return 12;
-    default: return 6;
+    case 'room': return 30;
+    case 'zone': case 'area': return 10;
+    case 'desk': return 16;
+    case 'parking': case 'locker': return 20;
+    default: return 12;
   }
 }
 
@@ -98,7 +98,7 @@ export function exportIsometricSvg(
   const viewH = maxDim * 1.6;
 
   // Slightly stronger tilt + scale for a more volumetric read.
-  const isoTransform = `translate(${viewW * 0.5}, ${viewH * 0.44}) scale(0.68, 0.54) rotate(-31) translate(${-canvasW / 2}, ${-canvasH / 2})`;
+  const isoTransform = `translate(${viewW * 0.5}, ${viewH * 0.45}) scale(0.69, 0.54) rotate(-30) translate(${-canvasW / 2}, ${-canvasH / 2})`;
 
   let svg = `<?xml version="1.0" encoding="UTF-8"?>\n`;
   svg += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewW} ${viewH}" width="${viewW}" height="${viewH}" style="background:#0f1419">\n`;
@@ -106,7 +106,7 @@ export function exportIsometricSvg(
 
   // CSS status classes
   svg += `<style>\n`;
-  svg += `  .st4, .st5 { fill: #3a4555; fill-opacity: 0.6; pointer-events: all; }\n`;
+  svg += `  .st4, .st5 { fill: #3a4555; fill-opacity: 0.82; pointer-events: all; }\n`;
   svg += `  .free, .available { fill: #4CAF50; fill-opacity: 0.4; pointer-events: all; }\n`;
   svg += `  .booked, .pending { fill: #FF9800; fill-opacity: 0.4; pointer-events: all; }\n`;
   svg += `  .occupied { fill: #F44336; fill-opacity: 0.4; pointer-events: all; }\n`;
@@ -118,8 +118,12 @@ export function exportIsometricSvg(
 
   // Drop shadow filter for the whole map
   svg += `<defs>\n`;
-  svg += `  <filter id="map-shadow" x="-10%" y="-10%" width="130%" height="130%">\n`;
-  svg += `    <feDropShadow dx="4" dy="8" stdDeviation="16" flood-color="#000" flood-opacity="0.5"/>\n`;
+  svg += `  <linearGradient id="floor-grad" x1="0%" y1="0%" x2="100%" y2="100%">\n`;
+  svg += `    <stop offset="0%" stop-color="#222c3a"/>\n`;
+  svg += `    <stop offset="100%" stop-color="#17202b"/>\n`;
+  svg += `  </linearGradient>\n`;
+  svg += `  <filter id="map-shadow" x="-20%" y="-20%" width="160%" height="160%">\n`;
+  svg += `    <feDropShadow dx="8" dy="14" stdDeviation="18" flood-color="#000" flood-opacity="0.55"/>\n`;
   svg += `  </filter>\n`;
   svg += `</defs>\n`;
 
@@ -127,11 +131,11 @@ export function exportIsometricSvg(
   svg += `<g transform="${isoTransform}" filter="url(#map-shadow)">\n`;
 
   // Background floor
-  svg += `  <rect x="0" y="0" width="${canvasW}" height="${canvasH}" rx="8" fill="#1e2530"/>\n`;
+  svg += `  <rect x="0" y="0" width="${canvasW}" height="${canvasH}" rx="10" fill="url(#floor-grad)"/>\n`;
 
   // Floor plan image
   if (bgDataUri) {
-    svg += `  <image href="${bgDataUri}" x="0" y="0" width="${canvasW}" height="${canvasH}" opacity="0.5" preserveAspectRatio="xMidYMid meet"/>\n`;
+    svg += `  <image href="${bgDataUri}" x="0" y="0" width="${canvasW}" height="${canvasH}" opacity="0.2" preserveAspectRatio="xMidYMid meet"/>\n`;
   }
 
   // Sort objects back-to-front by "footprint depth" in screen space.
@@ -155,14 +159,14 @@ export function exportIsometricSvg(
     if (depth > 3) {
       svg += `  ${renderDepthShadow(obj, depth, color)}\n`;
     }
-    svg += `  ${renderShape(obj, `fill="${color}" opacity="0.42" stroke="${obj.stroke_color || '#6b7280'}" stroke-width="1.2"`)}\n`;
+    svg += `  ${renderShape(obj, `fill="${color}" opacity="0.55" stroke="${obj.stroke_color || '#6b7280'}" stroke-width="1.3"`)}\n`;
   }
 
   // Depth shadows for bookable spaces (rendered before the top faces)
   svg += `  <g id="depth-shadows">\n`;
   for (const obj of bookable) {
     const depth = getDepth(obj.object_type);
-    svg += `    ${renderDepthShadow(obj, depth, '#4a5568')}\n`;
+    svg += `    ${renderDepthShadow(obj, depth, '#3f4b5d')}\n`;
   }
   svg += `  </g>\n`;
 
@@ -172,8 +176,8 @@ export function exportIsometricSvg(
     const mapId = obj.svg_id || obj.id;
     const placeosId = mapId.startsWith('area-') ? `${mapId}-status` : `area-${mapId}-status`;
     const cls = obj.object_type === 'desk' ? 'st5' : 'st4';
-    const topStroke = obj.object_type === 'desk' ? '#2f3b4a' : '#334155';
-    svg += `    ${renderShape(obj, `id="${escXml(placeosId)}" class="${cls}" stroke="${topStroke}" stroke-width="1.1"`)}\n`;
+    const topStroke = obj.object_type === 'desk' ? '#1f2937' : '#0f172a';
+    svg += `    ${renderShape(obj, `id="${escXml(placeosId)}" class="${cls}" stroke="${topStroke}" stroke-width="1.4"`)}\n`;
   }
   svg += `  </g>\n`;
 
