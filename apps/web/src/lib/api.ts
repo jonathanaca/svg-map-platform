@@ -75,7 +75,6 @@ export interface DetectedRoom {
   y: number;
   width: number;
   height: number;
-  points?: { x: number; y: number }[];
 }
 
 export interface AnalysisResult {
