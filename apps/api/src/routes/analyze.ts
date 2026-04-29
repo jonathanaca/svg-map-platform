@@ -25,8 +25,11 @@ router.post('/:jobId/analyze', async (req, res) => {
     const processed_path = getProcessedPath(`${jobId}.jpg`);
     const result = await analyzeFloorplan(processed_path, metadata.width, metadata.height);
 
-    // Only save detected rooms — outline/walls from vision AI are unreliable
-    res.json({ rooms: result.rooms });
+    res.json({
+      outline: result.outline,
+      walls: result.walls,
+      rooms: result.rooms,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Analysis failed';
     console.error('Analysis error:', message);

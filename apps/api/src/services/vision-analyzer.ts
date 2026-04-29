@@ -1,6 +1,5 @@
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import sharp from 'sharp';
-import fs from 'fs';
 import type { TracedPath } from '@svg-map/types';
 
 export interface DetectedRoom {
@@ -19,29 +18,75 @@ export interface AnalysisResult {
   rooms: DetectedRoom[];
 }
 
-// Max dimension to send to the vision API (keeps base64 under ~1MB)
+// Max dimension sent to the vision API (keeps base64 under ~1 MB)
 const MAX_ANALYSIS_DIM = 2048;
+
+type Point = { x: number; y: number };
+
+function perpDist(p: Point, a: Point, b: Point): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const mag = Math.sqrt(dx * dx + dy * dy);
+  if (mag === 0) return Math.sqrt((p.x - a.x) ** 2 + (p.y - a.y) ** 2);
+  return Math.abs(dx * (a.y - p.y) - (a.x - p.x) * dy) / mag;
+}
+
+function douglasPeucker(pts: Point[], epsilon: number): Point[] {
+  if (pts.length < 3) return pts;
+  let maxDist = 0;
+  let maxIdx = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = perpDist(pts[i], pts[0], pts[pts.length - 1]);
+    if (d > maxDist) { maxDist = d; maxIdx = i; }
+  }
+  if (maxDist > epsilon) {
+    const left = douglasPeucker(pts.slice(0, maxIdx + 1), epsilon);
+    const right = douglasPeucker(pts.slice(maxIdx), epsilon);
+    return [...left.slice(0, -1), ...right];
+  }
+  return [pts[0], pts[pts.length - 1]];
+}
+
+// When a room label matches the PlaceOS floor-number convention (e.g. "12-87"),
+// emit the canonical id "area-12.87-free".
+function toPlaceOSId(label: string): string | null {
+  const match = label.match(/(\d{1,2})-(\d{1,3})/);
+  if (match) return `area-${match[1]}.${match[2]}-free`;
+  return null;
+}
+
+function sanitizeId(raw: string, index: number, seen: Set<string>): string {
+  let id = (raw || `room-${index}`)
+    .toLowerCase()
+    .replace(/[^a-z0-9-_.]/g, '-')
+    .replace(/^[^a-z]/, 'r$&');
+  let unique = id;
+  let counter = 1;
+  while (seen.has(unique)) unique = `${id}-${counter++}`;
+  seen.add(unique);
+  return unique;
+}
 
 export async function analyzeFloorplan(
   imagePath: string,
   imageWidth: number,
   imageHeight: number,
+  mode: 'outline' | 'rooms' | 'all' = 'all',
 ): Promise<AnalysisResult> {
-  const api_key = process.env.OPENAI_API_KEY;
+  const api_key = process.env.ANTHROPIC_API_KEY;
   if (!api_key) {
-    throw new Error('OPENAI_API_KEY environment variable is required for auto-detection');
+    throw new Error('ANTHROPIC_API_KEY environment variable is required for auto-detection');
   }
 
-  const client = new OpenAI({ apiKey: api_key });
+  const client = new Anthropic({ apiKey: api_key });
 
-  // Downscale for the API while tracking the scale factor
   const scale_factor = Math.min(1, MAX_ANALYSIS_DIM / Math.max(imageWidth, imageHeight));
   const send_width = Math.round(imageWidth * scale_factor);
   const send_height = Math.round(imageHeight * scale_factor);
 
-  console.log(`Preparing image: ${imageWidth}x${imageHeight} → ${send_width}x${send_height} (scale: ${scale_factor.toFixed(3)})`);
+  console.log(`Preparing image: ${imageWidth}x${imageHeight} → ${send_width}x${send_height}`);
 
-  // Resize and add grid overlay
+  // Overlay a coordinate grid so the model can read pixel positions accurately
   const spacing = Math.max(100, Math.round(send_width / 10 / 50) * 50);
   const lines: string[] = [];
   const labels: string[] = [];
@@ -66,64 +111,95 @@ export async function analyzeFloorplan(
     .toBuffer();
 
   const base64 = image_buffer.toString('base64');
-  console.log(`Image prepared: ${(base64.length / 1024).toFixed(0)}KB base64`);
+  console.log(`Image prepared: ${(base64.length / 1024).toFixed(0)} KB base64`);
 
-  const prompt = `Analyze this architectural floor plan. A RED COORDINATE GRID is overlaid with labels showing the ORIGINAL pixel coordinates (the image has been scaled down but the grid labels show the true coordinates).
+  const GRID_PREAMBLE = `You are an expert architectural floor plan analyser. A RED COORDINATE GRID is overlaid on this image. Grid labels show ORIGINAL pixel coordinates (the image was scaled down but labels reflect the true dimensions).
 
-The ORIGINAL image is ${imageWidth}px wide × ${imageHeight}px tall. Return all coordinates in ORIGINAL image pixels using the red grid labels as reference.
+The ORIGINAL image is ${imageWidth}px wide × ${imageHeight}px tall. Return ALL coordinates in ORIGINAL image pixels using the red grid as reference.`;
 
-Identify EVERY space:
+  const OUTLINE_TASK = `
+────────────────────────────────────────
+TASK — BUILDING OUTLINE
+────────────────────────────────────────
+Trace the EXTERIOR PERIMETER — the actual physical outer walls of the building floor plate.
 
-1. **Building outline**: outer perimeter polygon vertices.
-
-2. **ALL rooms and spaces** — be thorough:
-   - Meeting rooms (labeled "Meeting X.XX")
-   - Focus rooms/pods (labeled "Focus X.XX")
-   - Phone booths
-   - Collaboration / collab areas
-   - Project spaces
-   - Open plan zones
-   - Wellness rooms
-   - CEO areas
-   - Facilities: restrooms, lifts, stairs, lockers, kitchens, teapoints, print rooms
-   - Filing rooms, comms rooms
-   - Any other labeled space
-
-   For each: bounding rectangle (x, y = top-left corner, width, height) in ORIGINAL pixels. Read labels from the drawing text.
-
-3. **Walls**: major internal wall segments as polylines in ORIGINAL pixels.
+Rules:
+• TRACE the solid, continuous lines at the very outermost edge of the floor plan drawing.
+• The outline must ENCOMPASS every room, desk, and labelled space in the plan.
+• Vertices are wall corners — usually 90° angles. Include every notch, setback, and recess in the perimeter.
+• DO NOT trace dotted lines, dashed lines, curved scalloped lines, or "OUT OF SCOPE" demarcation curves. These are internal zone boundaries, not outer walls.
+• Stop at the last solid wall — do not extend to blank margins, title blocks, or image borders.
+• Use as many vertices as needed (10–80) to accurately capture the shape. Do NOT simplify to a box.
 
 Return ONLY valid JSON, no markdown:
-{"outline":{"points":[{"x":270,"y":120}],"closed":true},"walls":[{"points":[{"x":100,"y":500},{"x":100,"y":2000}],"closed":false}],"rooms":[{"id":"meeting-3-01","label":"Meeting 3.01","type":"meeting","x":500,"y":200,"width":300,"height":250}]}`;
+{"outline":{"points":[{"x":270,"y":120},{"x":1050,"y":120}],"closed":true},"walls":[],"rooms":[]}`;
 
-  console.log('Sending to GPT-4o...');
+  const ROOMS_TASK = `
+────────────────────────────────────────
+TASK — ROOM DETECTION
+────────────────────────────────────────
+Identify EVERY labelled space on this floor plan. Use the RED coordinate grid to measure precise pixel positions.
 
-  const response = await client.chat.completions.create({
-    model: 'gpt-4o',
+For each space, follow these steps:
+1. Read the label text exactly as printed (e.g. "MEETING 3.44", "COLLAB", "FOCUS 3.38")
+2. Locate the solid walls that enclose the space
+3. Use the red grid lines to read the pixel coordinate at each wall edge
+4. Set x,y to the TOP-LEFT corner of the enclosed space (at the inner face of the wall)
+5. Set width,height to the interior dimensions of that space
+
+Rules:
+• Bounding boxes must align tightly to the room's own walls — do NOT bleed into adjacent rooms or corridors
+• Each labelled space gets its own separate bounding box — do not merge adjacent rooms
+• Include ALL spaces: meeting rooms, focus rooms, open-plan zones, collaboration areas, phone booths, wellness rooms, print/copy areas, storage, locker rooms, facilities (toilets, showers, lifts, stairs, kitchens, teapoints), reception, lounges, any other named space
+• type must be one of: meeting | focus | collaboration | open-plan | facilities | other
+
+Return ONLY valid JSON, no markdown:
+{"outline":null,"walls":[],"rooms":[{"id":"meeting-3-44","label":"MEETING 3.44","type":"meeting","x":500,"y":200,"width":180,"height":140}]}`;
+
+  const ALL_TASK = `
+────────────────────────────────────────
+TASK 1 — BUILDING OUTLINE
+────────────────────────────────────────
+Trace the EXTERIOR PERIMETER — the actual physical outer walls of the building floor plate.
+• TRACE the thick, continuous solid outer wall lines only. Stop at the last wall — do NOT extend to blank margins, title blocks, or image edges.
+• DO NOT trace dotted, dashed, or curved scalloped lines (internal zone boundaries).
+• Capture every corner, notch and setback. Use as many vertices as needed (10–80).
+
+────────────────────────────────────────
+TASK 2 — ROOMS
+────────────────────────────────────────
+Identify ALL labelled spaces: label text, bounding rect (x, y, width, height), type (meeting|focus|collaboration|open-plan|facilities|other).
+
+Return ONLY valid JSON, no markdown:
+{"outline":{"points":[{"x":270,"y":120}],"closed":true},"walls":[],"rooms":[{"id":"meeting-12-89","label":"Meeting 12-89","type":"meeting","x":500,"y":200,"width":300,"height":250}]}`;
+
+  const prompt = `${GRID_PREAMBLE}${mode === 'outline' ? OUTLINE_TASK : mode === 'rooms' ? ROOMS_TASK : ALL_TASK}`;
+
+  console.log('Sending to Claude…');
+
+  const response = await client.messages.create({
+    model: 'claude-opus-4-7',
     max_tokens: 16000,
-    temperature: 0,
     messages: [
       {
         role: 'user',
         content: [
-          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64}`, detail: 'high' } },
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: 'image/jpeg', data: base64 },
+          },
           { type: 'text', text: prompt },
         ],
       },
     ],
   });
 
-  const response_text = response.choices[0]?.message?.content;
-  if (!response_text) {
-    throw new Error('No response from GPT-4o');
-  }
+  const response_text = response.content.find((b) => b.type === 'text')?.text ?? '';
+  if (!response_text) throw new Error('No response from Claude');
 
   console.log(`Response received: ${response_text.length} chars`);
 
-  let json_str = response_text.trim();
-  if (json_str.startsWith('```')) {
-    json_str = json_str.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-  }
+  const json_str = response_text.trim().replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
 
   let parsed: {
     outline?: { points: { x: number; y: number }[]; closed: boolean };
@@ -141,9 +217,13 @@ Return ONLY valid JSON, no markdown:
   const analysis: AnalysisResult = { outline: null, walls: [], rooms: [] };
 
   if (parsed.outline?.points?.length) {
+    // Minimal Douglas-Peucker — only removes sub-pixel noise, preserves all real corners.
+    const epsilon = Math.max(imageWidth, imageHeight) * 0.003;
+    const simplified = douglasPeucker(parsed.outline.points, epsilon);
+    console.log(`Outline: ${parsed.outline.points.length} pts → ${simplified.length} pts (ε=${epsilon.toFixed(0)})`);
     analysis.outline = {
       id: 'auto-outline',
-      points: parsed.outline.points,
+      points: simplified,
       closed: parsed.outline.closed ?? true,
     };
   }
@@ -159,14 +239,10 @@ Return ONLY valid JSON, no markdown:
   if (parsed.rooms?.length) {
     const seen = new Set<string>();
     analysis.rooms = parsed.rooms.map((r, i) => {
-      let id = r.id || `room-${i}`;
-      id = id.toLowerCase().replace(/[^a-z0-9-_]/g, '-').replace(/^[^a-z]/, 'r');
-      let unique_id = id;
-      let counter = 1;
-      while (seen.has(unique_id)) {
-        unique_id = `${id}-${counter++}`;
-      }
-      seen.add(unique_id);
+      // Prefer PlaceOS canonical ID derived from the label (e.g. "12-87" → "area-12.87-free")
+      const placeos_id = toPlaceOSId(r.label ?? '');
+      const raw_id = placeos_id ?? r.id ?? `room-${i}`;
+      const unique_id = sanitizeId(raw_id, i, seen);
 
       return {
         id: unique_id,

@@ -5,9 +5,10 @@ import { fileTypeFromBuffer } from 'file-type';
 import fs from 'fs';
 import { createJob, updateJob } from '../db/schema.js';
 import { processImage } from '../services/image-processor.js';
+import { rasterizePdf } from '../services/pdf-rasterizer.js';
 import { getUploadPath, getPreviewUrl } from '../services/storage.js';
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB (PDFs can be large)
 
 const storage = multer.memoryStorage();
 const upload = multer({
@@ -24,27 +25,32 @@ router.post('/', upload.single('floorplan'), async (req, res) => {
       return;
     }
 
-    // Validate MIME type from buffer (not just extension)
     const type = await fileTypeFromBuffer(req.file.buffer);
-    if (!type || type.mime !== 'image/jpeg') {
+    const mime = type?.mime ?? '';
+
+    if (mime !== 'image/jpeg' && mime !== 'application/pdf') {
       res.status(400).json({
-        error: 'Invalid file type. Only JPEG files are accepted.',
-        details: [{ field: 'file', message: `Detected type: ${type?.mime ?? 'unknown'}` }],
+        error: 'Invalid file type. JPEG or PDF files are accepted.',
+        details: [{ field: 'file', message: `Detected type: ${mime || 'unknown'}` }],
       });
       return;
     }
 
     const job_id = uuidv4();
-
-    // Save uploaded file
     const upload_path = getUploadPath(`${job_id}.jpg`);
-    fs.writeFileSync(upload_path, req.file.buffer);
 
-    // Create job record
+    if (mime === 'application/pdf') {
+      console.log(`Rasterizing PDF (${(req.file.buffer.length / 1024).toFixed(0)} KB)…`);
+      const { jpeg, pageCount } = await rasterizePdf(req.file.buffer);
+      fs.writeFileSync(upload_path, jpeg);
+      console.log(`PDF rasterized: ${pageCount} page(s), saved as JPEG`);
+    } else {
+      fs.writeFileSync(upload_path, req.file.buffer);
+    }
+
     createJob(job_id);
     updateJob(job_id, { status: 'processing', image_path: upload_path });
 
-    // Process image
     const metadata = await processImage(job_id);
     updateJob(job_id, { status: 'configuring', metadata });
 

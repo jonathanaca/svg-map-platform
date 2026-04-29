@@ -6,7 +6,7 @@ interface UploadStepProps {
   onComplete: (jobId: string, previewUrl: string, metadata?: ImageMetadata) => void;
 }
 
-const ACCEPTED_TYPES = ['image/jpeg'];
+const ACCEPTED_TYPES = ['image/jpeg', 'application/pdf'];
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -26,11 +26,18 @@ export default function UploadStep({ onComplete }: UploadStepProps) {
     setError(null);
 
     if (!ACCEPTED_TYPES.includes(selectedFile.type)) {
-      setError('Only JPEG files (.jpg, .jpeg) are accepted.');
+      setError('Only JPEG or PDF files are accepted.');
       return;
     }
 
     setFile(selectedFile);
+
+    // PDFs can't be previewed as an image — show a placeholder
+    if (selectedFile.type === 'application/pdf') {
+      setPreviewSrc(null);
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       setPreviewSrc(e.target?.result as string);
@@ -83,7 +90,7 @@ export default function UploadStep({ onComplete }: UploadStepProps) {
   return (
     <div className="card">
       <h2>Upload Floorplan</h2>
-      <p className="subtitle">Upload a JPEG image of your floorplan to get started.</p>
+      <p className="subtitle">Upload a PDF or JPEG floor plan. PDFs are automatically rasterized.</p>
 
       {error && (
         <div className="alert alert-error" role="alert">
@@ -105,29 +112,40 @@ export default function UploadStep({ onComplete }: UploadStepProps) {
         }}
         role="button"
         tabIndex={0}
-        aria-label="Drop a JPEG file here or click to browse"
+        aria-label="Drop a floor plan file here or click to browse"
       >
         <p>
           <strong>Click to browse</strong> or drag and drop
         </p>
-        <p>JPEG files only</p>
+        <p>PDF or JPEG</p>
       </div>
 
       <input
         ref={inputRef}
         type="file"
-        accept=".jpg,.jpeg"
+        accept=".jpg,.jpeg,.pdf"
         onChange={handleFileChange}
         style={{ display: 'none' }}
         aria-label="Select floorplan file"
       />
 
-      {file && previewSrc && (
+      {file && (
         <div className="file-preview">
-          <img src={previewSrc} alt="Floorplan preview" />
+          {previewSrc ? (
+            <img src={previewSrc} alt="Floorplan preview" />
+          ) : (
+            <div style={{ width: 80, height: 80, background: 'var(--color-surface)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', flexShrink: 0 }}>
+              PDF
+            </div>
+          )}
           <div>
             <div className="file-name">{file.name}</div>
             <div className="file-size">{formatFileSize(file.size)}</div>
+            {file.type === 'application/pdf' && (
+              <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 4 }}>
+                First page will be rasterized automatically
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -90,6 +90,16 @@ export async function analyzeFloorplan(jobId: string): Promise<AnalysisResult> {
   return handleResponse<AnalysisResult>(response);
 }
 
+export async function analyzeFloorplanSource(
+  floorplanId: string,
+  mode: 'outline' | 'rooms' | 'all' = 'all',
+): Promise<AnalysisResult> {
+  const response = await fetch(`${API_BASE}/floorplans/${floorplanId}/analyze?mode=${mode}`, {
+    method: 'POST',
+  });
+  return handleResponse<AnalysisResult>(response);
+}
+
 export async function getJobStatus(
   jobId: string,
 ): Promise<JobStatusResponse> {

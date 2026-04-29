@@ -14,6 +14,7 @@ import {
   bulkUpsertObjects,
   exportObjectsCsv,
   importObjectsCsv,
+  analyzeFloorplanSource,
 } from '../lib/api.js';
 import PropertiesPanel from '../components/PropertiesPanel.js';
 import ObjectListPanel from '../components/ObjectListPanel.js';
@@ -138,6 +139,17 @@ const DESK_LAYOUTS: { id: string; label: string; cols: number; rows: number; des
   { id: 'vface-6', label: 'Vertical Face to Face (6)', cols: 2, rows: 3, deskW: 30, deskH: 20, gap: 1 },
 ];
 
+function pointInPolygon(px: number, py: number, poly: { x: number; y: number }[]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].x, yi = poly[i].y, xj = poly[j].x, yj = poly[j].y;
+    if (((yi > py) !== (yj > py)) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 function getHandlePos(h: Handle, x: number, y: number, w: number, h2: number): [number, number] {
   const mx = x + w / 2, my = y + h2 / 2;
   switch (h) {
@@ -249,6 +261,8 @@ export default function EditorPage() {
   const [floorplan, setFloorplan] = useState<Floorplan | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [aiOutlineAnalyzing, setAiOutlineAnalyzing] = useState(false);
+  const [aiRoomsAnalyzing, setAiRoomsAnalyzing] = useState(false);
   const [activeTool, setActiveTool] = useState<Tool>('select');
   const [editorState, setEditorState] = useState<EditorState>(DEFAULT_EDITOR_STATE);
   const [dirty, setDirty] = useState(false);
@@ -304,28 +318,37 @@ export default function EditorPage() {
 
   const handleUndo = useCallback(() => {
     if (undoStack.current.length === 0) return;
+    const current: MapObject[] = JSON.parse(lastSnapshot.current || '[]');
     const prev = undoStack.current.pop()!;
-    redoStack.current.push(JSON.parse(lastSnapshot.current));
+    redoStack.current.push(current);
     lastSnapshot.current = JSON.stringify(prev);
     setObjects(prev);
     setSelectedObjectId(null);
     setDirty(true);
-    // Sync to API
     if (floorplanId) {
-      bulkUpsertObjects(floorplanId, prev).catch(() => {});
+      const prevIds = new Set(prev.map((o) => o.id));
+      for (const obj of current) {
+        if (!prevIds.has(obj.id)) deleteObject(obj.id).catch(() => {});
+      }
+      if (prev.length > 0) bulkUpsertObjects(floorplanId, prev).catch(() => {});
     }
   }, [floorplanId]);
 
   const handleRedo = useCallback(() => {
     if (redoStack.current.length === 0) return;
+    const current: MapObject[] = JSON.parse(lastSnapshot.current || '[]');
     const next = redoStack.current.pop()!;
-    undoStack.current.push(JSON.parse(lastSnapshot.current));
+    undoStack.current.push(current);
     lastSnapshot.current = JSON.stringify(next);
     setObjects(next);
     setSelectedObjectId(null);
     setDirty(true);
     if (floorplanId) {
-      bulkUpsertObjects(floorplanId, next).catch(() => {});
+      const nextIds = new Set(next.map((o) => o.id));
+      for (const obj of current) {
+        if (!nextIds.has(obj.id)) deleteObject(obj.id).catch(() => {});
+      }
+      if (next.length > 0) bulkUpsertObjects(floorplanId, next).catch(() => {});
     }
   }, [floorplanId]);
 
@@ -439,6 +462,7 @@ export default function EditorPage() {
   const [resizing, setResizing] = useState<{ objectId: string; handle: Handle; startX: number; startY: number; origX: number; origY: number; origW: number; origH: number } | null>(null);
   const [drawing, setDrawing] = useState<{ objectId: string; startX: number; startY: number } | null>(null);
   const [editing, setEditing] = useState<{ objectId: string; value: string } | null>(null);
+  const [vertexDrag, setVertexDrag] = useState<{ objectId: string; idx: number } | null>(null);
   const [snapGuides, setSnapGuides] = useState<{ type: 'h' | 'v'; pos: number }[]>([]);
 
   // Space-bar pan state
@@ -547,6 +571,116 @@ export default function EditorPage() {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
   }, [dirty, editorState]);
+
+  const handleAIOutline = useCallback(async () => {
+    if (!floorplanId) return;
+    setAiOutlineAnalyzing(true);
+    try {
+      // Remove any existing AI outline(s) first
+      setObjects((prev) => {
+        const existing = prev.filter((o) => o.svg_id === 'ai-outline');
+        for (const obj of existing) deleteObject(obj.id).catch(() => {});
+        return prev.filter((o) => o.svg_id !== 'ai-outline');
+      });
+
+      const result = await analyzeFloorplanSource(floorplanId, 'outline');
+      if (!result.outline?.points?.length) {
+        showToast('No outline detected. Try again.', 'error');
+        return;
+      }
+      const pts = result.outline.points;
+      const xs = pts.map((p) => p.x);
+      const ys = pts.map((p) => p.y);
+      const created = await createObject(floorplanId, {
+        object_type: 'area',
+        svg_id: 'ai-outline',
+        label: 'Building Outline',
+        geometry: {
+          type: 'polygon',
+          points: pts,
+          x: Math.min(...xs),
+          y: Math.min(...ys),
+          width: Math.max(...xs) - Math.min(...xs),
+          height: Math.max(...ys) - Math.min(...ys),
+        },
+        layer: 'background',
+        fill_color: 'rgba(107,114,128,0.10)',
+        stroke_color: '#1e293b',
+        opacity: 1,
+        z_index: 0,
+        locked: false,
+        visible: true,
+      });
+      setObjects((prev) => [...prev, created]);
+      setDirty(true);
+      showToast(`Building outline detected (${pts.length} vertices)`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Outline detection failed', 'error');
+    } finally {
+      setAiOutlineAnalyzing(false);
+    }
+  }, [floorplanId, showToast]);
+
+  const handleAIRooms = useCallback(async () => {
+    if (!floorplanId) return;
+    setAiRoomsAnalyzing(true);
+    try {
+      const result = await analyzeFloorplanSource(floorplanId, 'rooms');
+      if (!result.rooms?.length) {
+        showToast('No rooms detected. Try again.', 'error');
+        return;
+      }
+
+      // Use existing ai-outline polygon to clip rooms
+      const outlineObj = objects.find((o) => o.svg_id === 'ai-outline' && o.geometry.type === 'polygon' && o.geometry.points?.length);
+      const outlinePts = outlineObj?.geometry.points ?? null;
+      const clipMinX = outlinePts ? Math.min(...outlinePts.map((p) => p.x)) : 0;
+      const clipMinY = outlinePts ? Math.min(...outlinePts.map((p) => p.y)) : 0;
+      const clipMaxX = outlinePts ? Math.max(...outlinePts.map((p) => p.x)) : Infinity;
+      const clipMaxY = outlinePts ? Math.max(...outlinePts.map((p) => p.y)) : Infinity;
+
+      const clippedRooms = result.rooms
+        .filter((room) => {
+          const cx = room.x + room.width / 2;
+          const cy = room.y + room.height / 2;
+          if (cx < clipMinX || cx > clipMaxX || cy < clipMinY || cy > clipMaxY) return false;
+          if (outlinePts) return pointInPolygon(cx, cy, outlinePts);
+          return true;
+        })
+        .map((room) => {
+          if (!outlinePts) return room;
+          const x = Math.max(room.x, clipMinX);
+          const y = Math.max(room.y, clipMinY);
+          const maxX = Math.min(room.x + room.width, clipMaxX);
+          const maxY = Math.min(room.y + room.height, clipMaxY);
+          return { ...room, x, y, width: Math.max(20, maxX - x), height: Math.max(20, maxY - y) };
+        });
+
+      const created = await Promise.all(clippedRooms.map((room) =>
+        createObject(floorplanId, {
+          object_type: 'room',
+          svg_id: room.id,
+          label: room.label,
+          geometry: { type: 'rect', x: room.x, y: room.y, width: room.width, height: room.height },
+          layer: 'rooms',
+          fill_color: '#7c3aed55',
+          stroke_color: '#7c3aed',
+          opacity: 1,
+          z_index: 5,
+          locked: false,
+          visible: true,
+          metadata: { ai_detected: true, room_type: room.type },
+        })
+      ));
+      setObjects((prev) => [...prev, ...created]);
+      setDirty(true);
+      showToast(`${created.length} room(s) detected and added to map`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Room detection failed', 'error');
+    } finally {
+      setAiRoomsAnalyzing(false);
+    }
+  }, [floorplanId, objects, showToast]);
 
   const handleSave = useCallback(async () => {
     if (!floorplanId) return;
@@ -1262,6 +1396,26 @@ export default function EditorPage() {
             : o,
         ),
       );
+    } else if (vertexDrag) {
+      setObjects((prev) =>
+        prev.map((o) => {
+          if (o.id !== vertexDrag.objectId || !o.geometry.points) return o;
+          const newPts = o.geometry.points.map((p, i) => i === vertexDrag.idx ? { x, y } : p);
+          const xs = newPts.map((p) => p.x);
+          const ys = newPts.map((p) => p.y);
+          return {
+            ...o,
+            geometry: {
+              ...o.geometry,
+              points: newPts,
+              x: Math.min(...xs),
+              y: Math.min(...ys),
+              width: Math.max(...xs) - Math.min(...xs),
+              height: Math.max(...ys) - Math.min(...ys),
+            },
+          };
+        }),
+      );
     } else if (drawing) {
       const w = Math.abs(x - drawing.startX);
       const h = Math.abs(y - drawing.startY);
@@ -1315,7 +1469,7 @@ export default function EditorPage() {
 
     // Update cursor coordinates for status bar
     setCursorCoords({ x: Math.round(x), y: Math.round(y) });
-  }, [dragging, resizing, drawing, rectDraw, objects, activeTool, wallStart, editorState.snapEnabled, editorState.gridSize, panning, rotating, handleObjectChange]);
+  }, [dragging, resizing, vertexDrag, drawing, rectDraw, objects, activeTool, wallStart, editorState.snapEnabled, editorState.gridSize, panning, rotating, handleObjectChange]);
 
   const handleMouseUp = useCallback(() => {
     if (panning) { setPanning(false); panStartRef.current = null; return; }
@@ -1342,6 +1496,14 @@ export default function EditorPage() {
         setDirty(true);
       }
       setResizing(null);
+    }
+    if (vertexDrag) {
+      const obj = objects.find((o) => o.id === vertexDrag.objectId);
+      if (obj) {
+        updateObject(vertexDrag.objectId, { geometry: obj.geometry }).catch(() => {});
+        setDirty(true);
+      }
+      setVertexDrag(null);
     }
     if (drawing) {
       const obj = objects.find((o) => o.id === drawing.objectId);
@@ -1387,7 +1549,7 @@ export default function EditorPage() {
       }
       setRectDraw(null);
     }
-  }, [dragging, resizing, drawing, rectDraw, objects, floorplanId, activeLayerId, panning, rotating]);
+  }, [dragging, resizing, vertexDrag, drawing, rectDraw, objects, floorplanId, activeLayerId, panning, rotating]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     const { x, y } = toSvgCoords(e.clientX, e.clientY);
@@ -2138,6 +2300,48 @@ export default function EditorPage() {
           >
             <span className="dc-tool-label">Upload Image</span>
           </button>
+          {floorplan?.source_image_path && (
+            <>
+              <button
+                className="dc-tool-btn"
+                onClick={handleAIOutline}
+                disabled={aiOutlineAnalyzing || aiRoomsAnalyzing}
+                title="AI: detect building outline"
+                style={{ background: '#0f172a', color: '#fff', borderColor: '#334155' }}
+              >
+                {aiOutlineAnalyzing ? (
+                  <>
+                    <span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block', flexShrink: 0 }} />
+                    <span className="dc-tool-label">Detecting...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18" opacity="0.4"/></svg>
+                    <span className="dc-tool-label">AI Outline</span>
+                  </>
+                )}
+              </button>
+              <button
+                className="dc-tool-btn"
+                onClick={handleAIRooms}
+                disabled={aiOutlineAnalyzing || aiRoomsAnalyzing}
+                title="AI: detect rooms and add to map"
+                style={{ background: '#7c3aed', color: '#fff', borderColor: '#6d28d9' }}
+              >
+                {aiRoomsAnalyzing ? (
+                  <>
+                    <span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block', flexShrink: 0 }} />
+                    <span className="dc-tool-label">Detecting...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg>
+                    <span className="dc-tool-label">AI Rooms</span>
+                  </>
+                )}
+              </button>
+            </>
+          )}
         </div>
         )}
 
@@ -2816,13 +3020,31 @@ export default function EditorPage() {
 
               if (geom.type === 'polygon' && geom.points) {
                 const pts = geom.points.map((p) => `${p.x},${p.y}`).join(' ');
+                const isPolySelected = obj.id === selectedObjectId && activeTool === 'select' && editorMode === 'design';
+                const vr = Math.max(5, Math.max(canvasW, canvasH) * 0.004);
                 return (
-                  <polygon
-                    key={obj.id} points={pts}
-                    fill={fillColor} stroke={strokeColor} strokeWidth={sw}
-                    opacity={effectiveOpacity}
-                    style={{ cursor: 'pointer' }}
-                  />
+                  <g key={obj.id}>
+                    <polygon
+                      points={pts}
+                      fill={fillColor} stroke={strokeColor} strokeWidth={sw}
+                      opacity={effectiveOpacity}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    {isPolySelected && geom.points.map((pt, vi) => (
+                      <circle
+                        key={`vx-${vi}`}
+                        cx={pt.x} cy={pt.y} r={vr}
+                        fill="white" stroke="#f59e0b" strokeWidth={2}
+                        style={{ cursor: 'move' }}
+                        data-ui-only="true"
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          setVertexDrag({ objectId: obj.id, idx: vi });
+                          e.preventDefault();
+                        }}
+                      />
+                    ))}
+                  </g>
                 );
               }
 

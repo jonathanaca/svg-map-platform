@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
+import { analyzeFloorplan } from '../services/vision-analyzer.js';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
 import {
@@ -383,6 +384,40 @@ router.post('/:id/publish', (req, res) => {
   } catch (err) {
     console.error('Publish floorplan error:', err);
     res.status(500).json({ error: 'Failed to publish floorplan' });
+  }
+});
+
+// AI floor plan analysis — detect outline + rooms from source image
+router.post('/:id/analyze', async (req, res) => {
+  try {
+    const floorplan = getFloorplan(req.params.id);
+    if (!floorplan) {
+      res.status(404).json({ error: 'Floorplan not found' });
+      return;
+    }
+
+    const source_path = floorplan.source_image_path as string | null;
+    if (!source_path || !fs.existsSync(source_path)) {
+      res.status(400).json({ error: 'No source image uploaded. Upload a floor plan image first.' });
+      return;
+    }
+
+    const meta = await sharp(source_path).metadata();
+    const width = meta.width ?? 0;
+    const height = meta.height ?? 0;
+
+    if (!width || !height) {
+      res.status(400).json({ error: 'Could not read source image dimensions.' });
+      return;
+    }
+
+    const mode = (req.query.mode as string) ?? 'all';
+    const result = await analyzeFloorplan(source_path, width, height, mode as 'outline' | 'rooms' | 'all');
+    res.json({ outline: result.outline, walls: result.walls, rooms: result.rooms });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Analysis failed';
+    console.error('Floorplan analyze error:', message);
+    res.status(500).json({ error: message });
   }
 });
 
