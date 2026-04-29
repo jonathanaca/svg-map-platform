@@ -725,6 +725,12 @@ export default function EditorPage() {
       const clippedRooms = result.rooms
         .map((room) => {
           if (!outlinePts) return room;
+          // Polygon rooms: check centroid against outline; skip rect-clipping which would distort the shape.
+          if (room.points && room.points.length >= 3) {
+            const cx = room.points.reduce((s, p) => s + p.x, 0) / room.points.length;
+            const cy = room.points.reduce((s, p) => s + p.y, 0) / room.points.length;
+            return pointInPolygon(cx, cy, outlinePts) ? room : null;
+          }
           const cx = room.x + room.width / 2;
           const cy = room.y + room.height / 2;
           if (!pointInPolygon(cx, cy, outlinePts)) return null;
@@ -738,7 +744,9 @@ export default function EditorPage() {
           object_type: 'room',
           svg_id: room.id,
           label: room.label,
-          geometry: { type: 'rect', x: room.x, y: room.y, width: room.width, height: room.height },
+          geometry: room.points && room.points.length >= 3
+            ? { type: 'polygon', points: room.points }
+            : { type: 'rect', x: room.x, y: room.y, width: room.width, height: room.height },
           layer: 'rooms',
           fill_color: '#7c3aed55',
           stroke_color: '#7c3aed',

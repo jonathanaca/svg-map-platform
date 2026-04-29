@@ -10,6 +10,10 @@ export interface DetectedRoom {
   y: number;
   width: number;
   height: number;
+  // Polygon vertices in original-image pixels. Optional — present when the model
+  // returns a non-rectangular room shape (L-shaped, notched, angled). Renderers
+  // should prefer points over the bbox when both are present.
+  points?: { x: number; y: number }[];
 }
 
 export interface AnalysisResult {
@@ -177,18 +181,20 @@ Identify EVERY labelled space on this floor plan. Use the RED coordinate grid to
 
 For each space, follow these steps:
 1. Read the label text exactly as printed (e.g. "MEETING 3.44", "COLLAB", "FOCUS 3.38")
-2. Locate the solid walls that enclose the space
-3. Use the red grid lines to read the pixel coordinate at each wall edge
-4. Set x,y to the TOP-LEFT corner of the enclosed space (at the inner face of the wall)
-5. Set width,height to the interior dimensions of that space
+2. Trace the polygon formed by the solid walls that enclose the space
+3. Use the red grid lines to read pixel coordinates at each wall corner
+4. Return the corner vertices as "points" in clockwise order, starting from the top-left
+5. Also return a tight bounding box (x,y,width,height) of those points as a fallback
 
 Rules:
-• Bounding boxes must align tightly to the room's OWN enclosing walls — stop exactly at each wall line
+• The polygon must follow the room's OWN enclosing walls exactly — stop at each wall line, turn at each corner
+• Capture ALL corners — if the room is L-shaped, has a notch, an angled wall, or a setback, include those vertices. Do NOT simplify to a rectangle.
+• 4 vertices for a rectangular room. 6 for an L-shape. More for irregular shapes. Use as many as needed.
 • Do NOT bleed into adjacent rooms, corridors, or open areas
-• Each labelled space gets its own separate bounding box — never merge adjacent rooms
+• Each labelled space gets its own separate polygon — never merge adjacent rooms
 
 Size guidance (measure wall-to-wall, interior only):
-• focus (phone booth / quiet pod / 1-person room): very small enclosed space — width AND height should each be LESS than 8% of the total floor plan width. If you measure larger than this, re-check that you are not including neighbouring space.
+• focus (phone booth / quiet pod / 1-person room): very small enclosed space — bounding box width AND height should each be LESS than 8% of the total floor plan width. If you measure larger than this, re-check that you are not including neighbouring space.
 • meeting (enclosed meeting room): medium enclosed room — typically 8–25% of floor plan width. Measure ONLY the interior of that one room, stopping at its four walls.
 • collaboration / open-plan: larger open zones, can be wide
 • facilities / other: varies
@@ -197,7 +203,7 @@ Include ALL spaces: meeting rooms, focus rooms, open-plan zones, collaboration a
 type must be one of: meeting | focus | collaboration | open-plan | facilities | other
 
 Return ONLY valid JSON, no markdown:
-{"outline":null,"walls":[],"rooms":[{"id":"meeting-3-44","label":"MEETING 3.44","type":"meeting","x":500,"y":200,"width":180,"height":140}]}`;
+{"outline":null,"walls":[],"rooms":[{"id":"meeting-3-44","label":"MEETING 3.44","type":"meeting","x":500,"y":200,"width":180,"height":140,"points":[{"x":500,"y":200},{"x":680,"y":200},{"x":680,"y":340},{"x":500,"y":340}]}]}`;
 
   const ALL_TASK = `
 ────────────────────────────────────────
@@ -211,10 +217,10 @@ Trace the EXTERIOR PERIMETER — the actual physical outer walls of the building
 ────────────────────────────────────────
 TASK 2 — ROOMS
 ────────────────────────────────────────
-Identify ALL labelled spaces: label text, bounding rect (x, y, width, height), type (meeting|focus|collaboration|open-plan|facilities|other).
+Identify ALL labelled spaces. For each room return: label text, type (meeting|focus|collaboration|open-plan|facilities|other), a polygon "points" array tracing the wall corners (clockwise, 4+ vertices — capture L-shapes, notches, angled walls; don't simplify to a rectangle), and a fallback bounding box (x, y, width, height) of those points.
 
 Return ONLY valid JSON, no markdown:
-{"outline":{"points":[{"x":270,"y":120}],"closed":true},"walls":[],"rooms":[{"id":"meeting-12-89","label":"Meeting 12-89","type":"meeting","x":500,"y":200,"width":300,"height":250}]}`;
+{"outline":{"points":[{"x":270,"y":120}],"closed":true},"walls":[],"rooms":[{"id":"meeting-12-89","label":"Meeting 12-89","type":"meeting","x":500,"y":200,"width":300,"height":250,"points":[{"x":500,"y":200},{"x":800,"y":200},{"x":800,"y":450},{"x":500,"y":450}]}]}`;
 
   const prompt = `${GRID_PREAMBLE}${mode === 'outline' ? OUTLINE_TASK : mode === 'rooms' ? ROOMS_TASK : ALL_TASK}`;
 
@@ -284,6 +290,9 @@ Return ONLY valid JSON, no markdown:
       const placeos_id = toPlaceOSId(r.label ?? '');
       const raw_id = placeos_id ?? r.id ?? `room-${i}`;
       const unique_id = sanitizeId(raw_id, i, seen);
+      const points = Array.isArray(r.points) && r.points.length >= 3
+        ? r.points.map((p) => ({ x: Math.max(0, Math.round(p.x)), y: Math.max(0, Math.round(p.y)) }))
+        : undefined;
       return {
         id: unique_id,
         label: r.label || `Room ${i + 1}`,
@@ -292,11 +301,15 @@ Return ONLY valid JSON, no markdown:
         y: Math.max(0, Math.round(r.y)),
         width: Math.max(20, Math.round(r.width)),
         height: Math.max(20, Math.round(r.height)),
+        points,
       };
     });
-    // Snap shared edges: rooms within snapThreshold px of each other get aligned
+    // Snap shared edges only on bbox-only rooms — polygons carry their own
+    // wall geometry and shouldn't be axis-aligned/distorted.
+    const polygonRooms = rawRooms.filter((r) => r.points);
+    const rectRooms = rawRooms.filter((r) => !r.points);
     const snapThreshold = Math.max(imageWidth, imageHeight) * 0.008;
-    analysis.rooms = snapRoomEdges(rawRooms, snapThreshold);
+    analysis.rooms = [...snapRoomEdges(rectRooms, snapThreshold), ...polygonRooms];
   }
 
   console.log(`Detected: outline=${analysis.outline ? 'yes' : 'no'}, walls=${analysis.walls.length}, rooms=${analysis.rooms.length}`);
