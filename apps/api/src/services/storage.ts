@@ -3,7 +3,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STORAGE_ROOT = path.resolve(__dirname, '../../../../storage');
+const STORAGE_ROOT = process.env.SVG_MAP_STORAGE_ROOT
+  ? path.resolve(process.env.SVG_MAP_STORAGE_ROOT)
+  : path.resolve(__dirname, '../../../../storage');
 
 const DIRS = {
   uploads: path.join(STORAGE_ROOT, 'uploads'),

@@ -16,7 +16,10 @@ import {
 } from '../db/schema.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FLOORPLAN_UPLOADS = path.resolve(__dirname, '../../../../storage/uploads/floorplans');
+const STORAGE_ROOT = process.env.SVG_MAP_STORAGE_ROOT
+  ? path.resolve(process.env.SVG_MAP_STORAGE_ROOT)
+  : path.resolve(__dirname, '../../../../storage');
+const FLOORPLAN_UPLOADS = path.join(STORAGE_ROOT, 'uploads/floorplans');
 
 // Ensure upload directory exists
 if (!fs.existsSync(FLOORPLAN_UPLOADS)) {
