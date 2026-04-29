@@ -4707,7 +4707,7 @@ export default function EditorPage() {
                 ['Poly / Outline', 'Click points to draw, click first green point to close'],
                 ['Wall', 'Click start, click end; hold Shift for straight wall alignment'],
                 ['Place', 'Drop desks/lockers/objects using selected dimensions'],
-                ['AI Outline / AI Rooms', 'Upload image first, then run AI to detect boundary and spaces'],
+                ['AI Outline / AI Rooms', 'Upload image first, then run AI to detect boundary and spaces. Generated outlines are editable — switch to Select, click a shape, and drag any vertex to reshape it.'],
               ].map(([tool, how]) => (
                 <div key={tool} className="shortcut-row" style={{ alignItems: 'flex-start' }}>
                   <span style={{ fontWeight: 600 }}>{tool}</span>
