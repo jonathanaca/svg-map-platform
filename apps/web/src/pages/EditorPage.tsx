@@ -2464,6 +2464,16 @@ export default function EditorPage() {
         </div>
         )}
 
+        <button
+          className="dc-tool-btn"
+          onClick={() => setShowShortcutsHelp(true)}
+          title="How to use editor tools"
+          style={{ background: '#eef2ff', color: '#3730a3', borderColor: '#c7d2fe' }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 1 1 5.8 1c0 2-3 2-3 4"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span className="dc-tool-label">How to Use</span>
+        </button>
+
         {quoteReqs && (
           <button
             className="dc-tool-btn"
@@ -4687,6 +4697,23 @@ export default function EditorPage() {
             <div className="shortcuts-title">
               <h2>Keyboard Shortcuts</h2>
               <button className="shortcuts-close" onClick={() => setShowShortcutsHelp(false)}>&times;</button>
+            </div>
+
+            <div className="shortcuts-group">
+              <div className="shortcuts-group-title">Tool Guide</div>
+              {[
+                ['Select', 'Click to select, drag to move, drag handles to resize'],
+                ['Rect', 'Click-drag to draw rooms/zones quickly on active layer'],
+                ['Poly / Outline', 'Click points to draw, click first green point to close'],
+                ['Wall', 'Click start, click end; hold Shift for straight wall alignment'],
+                ['Place', 'Drop desks/lockers/objects using selected dimensions'],
+                ['AI Outline / AI Rooms', 'Upload image first, then run AI to detect boundary and spaces'],
+              ].map(([tool, how]) => (
+                <div key={tool} className="shortcut-row" style={{ alignItems: 'flex-start' }}>
+                  <span style={{ fontWeight: 600 }}>{tool}</span>
+                  <div style={{ maxWidth: 240, textAlign: 'right', color: '#64748b', fontSize: 12 }}>{how}</div>
+                </div>
+              ))}
             </div>
 
             <div className="shortcuts-group">
